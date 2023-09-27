@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 10.DRG组(ADRG未找到所属DRG) -->
+<mapper>
+    <sql id="script"><![CDATA[
+        --DRG组(ADRG未找到所属DRG)
+insert into medical_gbdp.medical_visit_drg(
+	id,
+	batch_id,
+	visitid,
+	orgid,
+	mdc,
+	mdc_name,
+	adrg,
+	adrg_name,
+	drg,
+	drg_name,
+	drg_step,
+	drg_step_desc,
+	project,
+	drg_diag_code,
+	drg_diag_name,
+	drg_surgery_code,
+	drg_surgery_name,
+	created_by,
+	created_by_name,
+	created_time)
+select
+	md5(concat_ws('_', '${batchId}', a.visitid, a.orgid, a.mdc, a.adrg, concat(a.adrg, '9'), a.diseasecode, a.surgery_code)) id,
+	'${batchId}' batch_id,
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	a.mdc_name,
+	a.adrg,
+	a.adrg_name,
+	concat(a.adrg, '9') drg,
+	a.adrg_name drg_name,
+	'14',
+	'14.ADRG未找到所属DRG',
+	'${project}',
+	a.diseasecode drg_diag_code,
+	a.diseasename drg_diag_name,
+	a.surgery_code drg_surgery_code,
+	a.surgery_name drg_surgery_name,
+	null created_by,
+	null created_by_name,
+	null created_time
+from
+	medical_gbdp.t_medical_visit_adrg_list_${seq} a
+where
+	not exists(
+	select
+		1
+	from
+		medical_gbdp.t_catalog_drg_${seq} b
+	where
+		a.mdc = b.mdc_catalog_code
+		and a.adrg = b.adrg_catalog_code)
+	and a.batch_id='${batchId}';
+    ]]></sql>
+</mapper>

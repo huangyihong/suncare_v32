@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.his.mapper.CopyHisMapper">
+    <insert id="copyHisMedicalFormalCaseByBusiIds">
+        insert into his_medical_formal_case
+        (batch_id,
+        case_id,
+        case_code,
+        case_name,
+        case_codes,
+        case_names,
+        case_status,
+        case_remark,
+        case_version,
+        case_classify,
+        flow_json,
+        create_userid,
+        create_username,
+        create_time,
+        update_remark,
+        submit_userid,
+        submit_username,
+        submit_time,
+        action_name,
+        action_desc,
+        rule_basis,
+        rule_source,
+        rule_source_code,
+        start_time,
+        end_time,
+        action_id,
+        action_type,
+        action_type_name,
+        order_no,
+        result_data_status,
+        id_data_count,
+        obj_data_count,
+        data_money,
+        result_start_time,
+        result_end_time,
+        resule_message,
+        back_time)
+        select #{batchId,jdbcType=VARCHAR},
+        case_id,
+        case_code,
+        case_name,
+        case_codes,
+        case_names,
+        case_status,
+        case_remark,
+        case_version,
+        case_classify,
+        flow_json,
+        create_userid,
+        create_username,
+        create_time,
+        update_remark,
+        submit_userid,
+        submit_username,
+        submit_time,
+        action_name,
+        action_desc,
+        rule_basis,
+        rule_source,
+        rule_source_code,
+        start_time,
+        end_time,
+        action_id,
+        action_type,
+        action_type_name,
+        order_no,
+        result_data_status,
+        id_data_count,
+        obj_data_count,
+        data_money,
+        result_start_time,
+        result_end_time,
+        resule_message,
+        <!--        sysdate -->
+        now()
+        from his_medical_formal_case
+        where BATCH_ID = #{hisBatchId} and case_id in
+        (
+        SELECT DISTINCT case_id
+        FROM HIS_MEDICAL_FORMAL_CASE_BUSI
+        WHERE BATCH_ID = #{hisBatchId} and BUSI_ID in
+        <foreach collection="busiIds" item="busiId" index="index" open="(" close=")" separator=",">
+            #{busiId}
+        </foreach>
+        )
+    </insert>
+
+    <insert id="copyHisMedicalFormalFlowByBusiIds">
+        insert into his_medical_formal_flow
+        (batch_id,
+        node_id,
+        node_code,
+        node_type,
+        node_name,
+        prev_node_code,
+        prev_node_condition,
+        case_id,
+        param_code,
+        order_no,
+        back_time)
+        select #{batchId,jdbcType=VARCHAR},
+        node_id,
+        node_code,
+        node_type,
+        node_name,
+        prev_node_code,
+        prev_node_condition,
+        case_id,
+        param_code,
+        order_no,
+        <!--        sysdate -->
+        now()
+        from his_medical_formal_flow
+        where BATCH_ID = #{hisBatchId} and case_id in
+        (
+        SELECT DISTINCT case_id
+        FROM HIS_MEDICAL_FORMAL_CASE_BUSI
+        WHERE BATCH_ID = #{hisBatchId} and BUSI_ID in
+        <foreach collection="busiIds" item="busiId" index="index" open="(" close=")" separator=",">
+            #{busiId}
+        </foreach>
+        )
+    </insert>
+
+    <insert id="copyHisMedicalFormalFlowRuleByBusiIds">
+        insert into his_medical_formal_flow_rule
+        (batch_id,
+        rule_id,
+        node_id,
+        case_id,
+        group_no,
+        logic,
+        table_name,
+        col_name,
+        compare_type,
+        compare_value,
+        order_no,
+        node_code,
+        back_time)
+        select #{batchId,jdbcType=VARCHAR},
+        rule_id,
+        node_id,
+        case_id,
+        group_no,
+        logic,
+        table_name,
+        col_name,
+        compare_type,
+        compare_value,
+        order_no,
+        node_code,
+        <!--        sysdate -->
+        now()
+        from his_medical_formal_flow_rule
+        where BATCH_ID = #{hisBatchId} and case_id in
+        (
+        SELECT DISTINCT case_id
+        FROM HIS_MEDICAL_FORMAL_CASE_BUSI
+        WHERE BATCH_ID = #{hisBatchId} and BUSI_ID in
+        <foreach collection="busiIds" item="busiId" index="index" open="(" close=")" separator=",">
+            #{busiId}
+        </foreach>
+        )
+    </insert>
+
+    <insert id="copyHisMedicalFormalFlowRuleGradeByBusiIds">
+        insert into his_formal_flow_rule_grade
+        (batch_id,
+        grade_id,
+        case_id,
+        evaluate_table,
+        evaluate_field,
+        evaluate_fieldname,
+        standard_val,
+        weight,
+        method,
+        node_id,
+        node_code,
+        back_time)
+        select #{batchId,jdbcType=VARCHAR},
+        grade_id,
+        case_id,
+        evaluate_table,
+        evaluate_field,
+        evaluate_fieldname,
+        standard_val,
+        weight,
+        method,
+        node_id,
+        node_code,
+        <!--        sysdate -->
+        now()
+        from his_formal_flow_rule_grade
+        where BATCH_ID = #{hisBatchId} and case_id in
+        (
+        SELECT DISTINCT case_id
+        FROM HIS_MEDICAL_FORMAL_CASE_BUSI
+        WHERE BATCH_ID = #{hisBatchId} and BUSI_ID in
+        <foreach collection="busiIds" item="busiId" index="index" open="(" close=")" separator=",">
+            #{busiId}
+        </foreach>
+        )
+    </insert>
+
+    <insert id="copyHisMedicalFormalFlowBusiByBusiIds">
+        insert into his_medical_formal_busi
+        (batch_id,
+        busi_id,
+        busi_name,
+        cust_name,
+        busi_status,
+        data_source_id,
+        etl_start_time,
+        etl_end_time,
+        create_userid,
+        create_username,
+        create_time,
+        back_time)
+        select #{batchId,jdbcType=VARCHAR},
+        busi_id,
+        busi_name,
+        cust_name,
+        busi_status,
+        data_source_id,
+        etl_start_time,
+        etl_end_time,
+        create_userid,
+        create_username,
+        create_time,
+        <!--        sysdate -->
+        now()
+        from his_medical_formal_busi
+        WHERE BATCH_ID = #{hisBatchId} and BUSI_ID in
+        <foreach collection="busiIds" item="busiId" index="index" open="(" close=")" separator=",">
+            #{busiId}
+        </foreach>
+
+    </insert>
+
+    <insert id="copyHisMedicalFormalFlowCaseBusiByBusiIds">
+        insert into his_medical_formal_case_busi
+        (batch_id,
+        rela_id,
+        busi_id,
+        case_id,
+        back_time)
+        select #{batchId,jdbcType=VARCHAR},
+        rela_id,
+        busi_id,
+        case_id,
+        <!--        sysdate -->
+        now()
+        from his_medical_formal_case_busi
+        WHERE BATCH_ID = #{hisBatchId} and BUSI_ID in
+        <foreach collection="busiIds" item="busiId" index="index" open="(" close=")" separator=",">
+            #{busiId}
+        </foreach>
+    </insert>
+
+</mapper>

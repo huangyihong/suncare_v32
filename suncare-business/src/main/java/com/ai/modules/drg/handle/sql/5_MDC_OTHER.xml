@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 5.MDC其他组 -->
+<mapper>
+    <sql id="script"><![CDATA[
+        --5.MDC其他组
+with t_master_info as(
+select
+	*
+from
+	src_his_zy_master_info a
+where
+	not exists(
+	select 1 from
+		medical_gbdp.medical_visit_mdc b where batch_id='${batchId}' and a.visitid=b.visitid and a.orgid=b.orgid)
+	and a.orgid in ${orgid}
+	and a.admitdate>='${startDate}'
+    and a.admitdate<='${endDate}'
+),
+t_mdc_diag as (
+--MDC其他组诊断
+select
+	*
+from
+	medical_gbdp.drg_catalog_detail
+where
+	catalog_type = 'MDC_INFO_V'
+	and mdc_catalog_code not in ('MDCA','MDCY','MDCZ')
+	and catalog_id = '${mdcDiagCatalogId}'
+),
+t_visit_mdc as(
+select distinct
+	a.visitid,
+	a.orgid,
+	b.mdc_catalog_code mdc,
+	string_agg(diseasecode, ',' order by diseasecode) mdc_diag_code,
+	string_agg(diseasename, ',' order by diseasecode) mdc_diag_name
+from src_his_zy_diag a join t_mdc_diag b on a.diseasecode = b.code
+where 1=1
+and a.orgid in ${orgid}
+group by a.visitid,a.orgid,b.mdc_catalog_code
+)
+insert into medical_gbdp.medical_visit_mdc(
+	id,
+	batch_id,
+	visitid,
+	orgid,
+	mdc,
+	project,
+	mdc_diag_code,
+	mdc_diag_name,
+	created_by,
+	created_by_name,
+	created_time)
+select
+	md5(concat_ws('_', '${batchId}', a.visitid, a.orgid, b.mdc)) id,
+	'${batchId}' batch_id,
+	a.visitid,
+	a.orgid,
+	b.mdc,
+	'${project}',
+	b.mdc_diag_code,
+	b.mdc_diag_name,
+	null created_by,
+	null created_by_name,
+	null created_time
+from
+	t_master_info a join t_visit_mdc b on a.visitid=b.visitid and a.orgid=b.orgid
+where
+	extract(day from (admitdate::timestamp-birthday::timestamp)) > 29
+	and not exists(
+	select 1 from medical_gbdp.medical_visit_mdc b
+	where
+		a.visitid = b.visitid
+		and a.orgid = b.orgid
+		and b.batch_id='${batchId}');
+    ]]></sql>
+</mapper>

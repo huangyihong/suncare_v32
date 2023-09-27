@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.medical.mapper.MedicalClinicalRangeGroupMapper">
+    <select id="listDetail" resultType="com.ai.modules.medical.vo.MedicalClinicalRangeGroupVO">
+        SELECT
+        t.*,t1.REMARK
+        FROM
+        MEDICAL_CLINICAL_RANGE_GROUP t
+        <choose>
+            <when test="type == 'drug'">
+                left join MEDICAL_DRUG_GROUP t1 on t.GROUP_CODE = t1.GROUP_CODE
+            </when>
+            <when test="type=='project'">
+                left join MEDICAL_PROJECT_GROUP t1 on t.GROUP_CODE = t1.GROUP_CODE
+            </when>
+            <otherwise>
+                left join MEDICAL_DICT t1 on t.GROUP_CODE = t1.GROUP_CODE
+            </otherwise>
+        </choose>
+        WHERE ${ew.sqlSegment}
+    </select>
+
+    <select id="listDetailMore" resultType="com.ai.modules.medical.vo.MedicalClinicalRangeGroupVO">
+        SELECT
+        t.*,t1.REMARK,t2.*
+        FROM
+        MEDICAL_CLINICAL_RANGE_GROUP t left join MEDICAL_CLINICAL t2 ON t2.CLINICAL_ID = t.CLINICAL_ID
+        <choose>
+            <when test="type == 'drug'">
+                left join MEDICAL_DRUG_GROUP t1 on t.GROUP_CODE = t1.GROUP_CODE
+            </when>
+            <when test="type == 'project'">
+                left join MEDICAL_PROJECT_GROUP t1 on t.GROUP_CODE = t1.GROUP_CODE
+            </when>
+            <otherwise>
+                left join MEDICAL_DICT t1 on t.GROUP_CODE = t1.GROUP_CODE
+            </otherwise>
+        </choose>
+        WHERE ${ew.sqlSegment}
+    </select>
+</mapper>

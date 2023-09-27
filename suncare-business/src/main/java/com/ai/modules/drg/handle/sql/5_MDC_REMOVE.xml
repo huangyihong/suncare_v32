@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 5.MDC删除 -->
+<mapper>
+    <sql id="script">
+        --5.MDC删除同时入组MDCM、MDCN
+        with t_mdc_mn as(
+        select
+        visitid,
+        orgid,
+        count(distinct mdc) cnt
+        from
+        medical_gbdp.medical_visit_mdc
+        where
+        batch_id = '${batchId}'
+        and mdc in ('MDCM', 'MDCN')
+        group by visitid, orgid
+        ),
+        t_mdc_repeat as(
+        select visitid, orgid from t_mdc_mn where cnt>1
+        ),
+        t_visit as(
+        select
+        visitid,
+        orgid,
+        case when sex ~ '男' then 'MDCM' else 'MDCN' end mdc
+        from src_his_zy_master_info a
+        where exists(select 1 from t_mdc_repeat b where a.visitid=b.visitid and a.orgid=b.orgid)
+        and sex ~ '男|女'
+        )
+        delete from medical_gbdp.medical_visit_mdc a
+        where exists(select 1 from t_visit b where a.visitid=b.visitid and a.orgid=b.orgid and a.mdc!=b.mdc)
+        and batch_id = '${batchId}'
+        and mdc in('MDCM', 'MDCN');
+    </sql>
+</mapper>

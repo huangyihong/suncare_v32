@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+    <sql id="ruleBlackList"><![CDATA[
+
+drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as
+(
+ --满足准入条件的项目明细
+select t.visitid,t.orgid,t.orgname, charge, chargeattri,selfpay_prop,
+  his_itemname,itemname,itemcode,sl, fy,
+  t2.dis ,t2.dis_main,t2.yyear,t2.case_id,t2.doctorname,t2.deptname,
+  t2.visittype,t2.name,t2.sex,t2.visitdate,t2.leavedate,t2.yearage
+  from
+  (
+  select visitid,orgid,orgname, chargedate as  charge, chargeattri,
+   selfpay_prop,his_itemname,itemname,itemcode,sl,  fy
+   from dc_src_yb_charge_detail x where 1=1
+   and orgname ~ '${orgname}' --${NOORGID}
+   and orgid in ${orgid}
+   and itemname = '${itemname}'
+   and visitid in (${visitid_in})
+   -- 不包含自费明细  --
+   and paytype='funpay'
+   ) t
+   inner join
+   (
+   select visitid ,orgid, dis_primary as dis_main,dis_secondary as dis,
+    yyear,case_id,doctorname,deptname,visittype,
+    name,sex,visitdate, leavedate,yearage
+   from dc_src_yb_master_diag_settl m where 1=1
+   and m.visitdate>='${startDate}'
+   and m.visitdate<='${endDate}'
+   and m.visittype ~ '${visittype}'
+   and m.case_id ~ '${caseid}'
+   and m.leavedate>='${leaveStartDate}'
+   and m.leavedate<='${leaveEndDate}'
+   and m.clientname ~ '${clientname}'
+   and m.id_no in (${idNo_in})
+   and visitid in (${visitid_in})
+  ) t2
+  on t.visitid=t2.visitid and t.orgid=t2.orgid
+) distributed by (visitid,orgid);
+
+-- 加分区加索引
+CREATE INDEX idx_tmp_detail_${sqlSeq} ON medical_gbdp.t_dc_result_${sqlSeq}
+    using  btree  (visitid,orgid);
+
+delete from medical_gbdp.t_dc_result_${sqlSeq} t where exists(
+ select 1 from src_yb_master_info y where t.visitid=y.visitid and t.orgid=y.orgid  --${limit_not_hosplevel}--
+ select 1 from ods_checkorg_list y where t.orgid=y.orgid --${limit_hosplevel}--
+ and ${where}
+ );
+
+ select * from medical_gbdp.t_dc_result_${sqlSeq} t
+ limit ${limitCount}
+
+    ]]></sql>
+</mapper>

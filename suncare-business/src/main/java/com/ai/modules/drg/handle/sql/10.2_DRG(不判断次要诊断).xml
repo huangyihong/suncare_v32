@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 10.DRG组(不判断次要诊断) -->
+<mapper>
+    <sql id="script"><![CDATA[
+        --DRG组(不判断次要诊断，入未做区分的DRG组)
+with t_medical_visit_drg as (
+select
+	a.*,
+	b.code drg,
+	b.name drg_name
+from medical_gbdp.t_medical_visit_adrg_list_${seq} a
+join medical_gbdp.t_catalog_drg_${seq} b on a.mdc = b.mdc_catalog_code and a.adrg = b.adrg_catalog_code
+where
+	b.valid_second_diag = '0'
+	and a.batch_id='${batchId}'
+)
+insert into medical_gbdp.medical_visit_drg(
+	id,
+	batch_id,
+	visitid,
+	orgid,
+	mdc,
+	mdc_name,
+	adrg,
+	adrg_name,
+	drg,
+	drg_name,
+	drg_step,
+	drg_step_desc,
+	project,
+	drg_diag_code,
+	drg_diag_name,
+	drg_surgery_code,
+	drg_surgery_name,
+	created_by,
+	created_by_name,
+	created_time)
+select
+	md5(concat_ws('_', '${batchId}', a.visitid, a.orgid, a.mdc, a.adrg, a.drg, a.diseasecode, a.surgery_code)) id,
+	'${batchId}' batch_id,
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	a.mdc_name,
+	a.adrg,
+	a.adrg_name,
+	a.drg,
+	a.drg_name,
+	'14',
+	'14.DRG不判断次要诊断',
+	'${project}',
+	a.diseasecode drg_diag_code,
+	a.diseasename drg_diag_name,
+	a.surgery_code drg_surgery_code,
+	a.surgery_name drg_surgery_name,
+	null created_by,
+	null created_by_name,
+	null created_time
+from t_medical_visit_drg a;
+    ]]></sql>
+</mapper>

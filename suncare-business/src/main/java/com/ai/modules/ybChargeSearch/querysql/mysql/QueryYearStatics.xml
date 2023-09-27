@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+
+<!-- 年度统计报表 医保 -->
+<sql id="querySql_YB"><![CDATA[
+select t.* from dc_org_year_static_yb t  where 1=1
+  and t.orgname rlike '${orgname}'
+  and t.yyear>='${yearStart}'
+  and t.yyear<='${yearEnd}'
+  and orgname in  (select orgname from ods_checkorg_list a where 1=1 --${ods_checkorg_list}
+       and a.local_tag='${localTag}'
+       and a.hosplevel='${hosplevel}'
+       and a.owntype='${owntype}'
+       and a.max_allfund_pay ${fundValType} ${maxAllfundPay}
+      ) --${ods_checkorg_list}
+  order by ${orderby}
+]]></sql>
+
+<!-- 创建年度统计报表结果表 医保 -->
+<sql id="createSql_YB"><![CDATA[
+---创建年度统计指标表
+-- 收费明细临时表
+drop TABLE if EXISTS t_settlement_set;
+create table t_settlement_set as (
+  select visitid,orgid,orgname ,sum(totalfee) as totalfee,sum(fundpay) as fundpay,
+  substr(cast(settlementdate as CHAR),1,4) as yyear
+  from src_yb_settlement t
+  group by visitid,orgid,orgname ,substr(cast(settlementdate as CHAR),1,4)
+);
+
+ -- 加分区加索引
+CREATE INDEX idx_settlement_set ON t_settlement_set using btree (visitid,orgid);
+
+--编制床位数临时表
+drop TABLE if EXISTS t_hospital_bed;
+create table t_hospital_bed as (
+  SELECT  t.org_name,sum(t.bed_amount) as bed_amount from medical_gbdp.yb_fj_org t
+  group by org_name
+);
+
+
+--主表和结算表临时表
+drop TABLE if EXISTS t_master_settlement_set;
+create table t_master_settlement_set as (
+SELECT t.orgid, t.orgname , yyear,
+  count(*) as total_count,
+  COALESCE(sum(case when t.visittype like '%住院%' then 1 end),0) as zy_count,
+  COALESCE(sum(case when t.visittype not like '%住院%' and  t.visittype not like '%药%' then 1 end),0) as mz_count,
+  COALESCE(sum(case when t.visittype like '%药%' then 1 end),0) as gy_count,
+  COALESCE(sum(case when t.visittype like '%住院%' then t1.totalfee end),0) as zy_fee,
+  sum(timestampdiff(DAY,t.leavedate, t.visitdate)) as visitdays,
+  sum(t1.totalfee) as sum_totalfee,
+  sum(t1.fundpay) as sum_fundpay
+from src_yb_master_info t
+inner join t_settlement_set t1 on t.visitid=t1.visitid and t.orgid=t1.orgid
+  GROUP BY  t.orgname,t.orgid,yyear
+);
+
+--查询最终结果集
+drop TABLE if EXISTS  dc_org_year_static_yb;
+create table dc_org_year_static_yb as (
+select t3.local_tag,
+ t.orgname, t.yyear,t.total_count,t.zy_count,t.mz_count,t.gy_count,t.sum_totalfee,t.sum_fundpay,
+ (case when t.zy_count=0 then 0 else round(t.zy_fee/t.zy_count,2) end) as avg_zy_fee,
+ (case when t.zy_count=0 then 0 else round(t.visitdays/t.zy_count,2) end) as avg_zy_day,
+ (case when t.visitdays=0 then 0 else round(t.zy_fee/t.visitdays,2) end) as avg_bed_fee,
+ (case when t.zy_count=0 then 0 else round(t.mz_count/t.zy_count,2) end) as zy_mz_rate,
+ (case when t2.bed_amount ISNULL then 0 else round(round(t.visitdays/(t2.bed_amount*365),4)*100,2) end) as bed_amount
+FROM t_master_settlement_set t
+LEFT JOIN t_hospital_bed t2 on t.orgname=t2.org_name
+left join ods_checkorg_list t3 on t3.orgid = t.orgid and t3.orgname = t.orgname
+);
+
+--删除临时表
+drop TABLE if EXISTS t_settlement_set;
+drop TABLE if EXISTS t_hospital_bed;
+drop TABLE if EXISTS t_master_settlement_set;
+
+
+]]></sql>
+
+
+<!-- 年度统计报表 医院HIS来源 -->
+<sql id="querySql_HIS"><![CDATA[
+select * from dc_org_year_static_his     t
+  where 1=1
+  and t.orgname rlike '${orgname}'
+  and t.yyear>='${yearStart}'
+  and t.yyear<='${yearEnd}'
+   and orgname in  (select orgname from ods_checkorg_list a where 1=1 --${ods_checkorg_list}
+       and a.local_tag='${localTag}'
+       and a.hosplevel='${hosplevel}'
+       and a.owntype='${owntype}'
+       and a.max_allfund_pay ${fundValType} ${maxAllfundPay}
+      ) --${ods_checkorg_list}
+  order by ${orderby}
+]]></sql>
+
+
+<!-- 创建年度指标年度汇总表（HIS来源） -->
+<sql id="createSql_HIS"><![CDATA[
+-- 创建年度统计指标表（HIS)
+
+-- HIS门诊结算数据临时表
+drop TABLE if EXISTS t_settlement_set_mz;
+create table t_settlement_set_mz as (
+  select orgid,orgname, substr(cast(settlementdate as CHAR),1,4) as yyear, 0 as zy_count,count(1) as mz_count,
+  0 as gy_count,0 as zy_fee,0 as visitdays,
+  sum(totalfee) as totalfee,sum(fundpay) as fundpay
+  from src_his_mz_settlement t
+  group by orgid,orgname ,substr(cast(settlementdate as CHAR),1,4)
+);
+
+ -- 加索引
+CREATE INDEX idx_settlement_set_mz ON t_settlement_set_mz (orgid);
+
+
+-- his住院结算数据临时表
+drop TABLE if EXISTS t_settlement_set_zy;
+create table t_settlement_set_zy as (
+  select t.orgid,t.orgname , substr(cast(settlementdate as CHAR),1,4) as yyear, count(1) as zy_count,0 as mz_count,
+  0 as gy_count,sum(t.totalfee) as zy_fee,sum(timestampdiff(DAY,t2.leavedate, t2.admitdate)) as visitdays,
+  sum(t.totalfee) as totalfee,sum(fundpay) as fundpay
+  from src_his_zy_settlement t inner join src_his_zy_master_info t2
+  on t.orgid=t2.orgid and t.visitid=t2.visitid
+  group by t.orgid,t.orgname ,substr(cast(settlementdate as CHAR),1,4)
+);
+
+ -- 加分区加索引
+CREATE INDEX idx_settlement_set_zy ON t_settlement_set_zy  (orgid);
+
+-- his结算数据汇总表
+drop TABLE if EXISTS t_settlement_set;
+create table t_settlement_set as
+(
+select orgid, t.orgname,t.yyear, count(*) as total_count,
+  sum(zy_count) as zy_count,
+  sum(mz_count) as mz_count,
+  sum(t.totalfee) as sum_totalfee,
+  sum(t.fundpay) as sum_fundpay,
+  sum(gy_count) as gy_count,
+  sum(t.zy_fee) as zy_fee,
+  sum(t.visitdays) as visitdays
+from (
+  select * from t_settlement_set_mz union all
+  select * from t_settlement_set_zy
+  ) t group by  orgid ,t.orgname  ,t.yyear
+) distributed by (orgid);
+
+
+--编制床位数
+drop TABLE if EXISTS t_hospital_bed;
+create table t_hospital_bed as (
+  SELECT  t.org_name,sum(t.bed_amount) as bed_amount from medical_gbdp.yb_fj_org t
+  group by org_name
+);
+ -- 加分区加索引
+CREATE INDEX idx_hospital_bed ON t_hospital_bed using btree (org_name);
+
+-- 创建年度统计指标表（HIS）表
+drop TABLE if EXISTS dc_org_year_static_his;
+create table dc_org_year_static_his as
+(
+   select t3.local_tag,
+ t.orgname, t.yyear,t.total_count,t.zy_count,t.mz_count,t.gy_count,t.sum_totalfee,t.sum_fundpay,
+ (case when t.zy_count=0 then 0 else round(t.zy_fee/t.zy_count,2) end) as avg_zy_fee,
+ (case when t.zy_count=0 then 0 else round(t.visitdays/t.zy_count,2) end) as avg_zy_day,
+ (case when t.visitdays=0 then 0 else round(t.zy_fee/t.visitdays,2) end) as avg_bed_fee,
+ (case when t.zy_count=0 then 0 else round(t.mz_count/t.zy_count,2) end) as zy_mz_rate,
+ (case when t2.bed_amount ISNULL then 0 else round(round(t.visitdays/(t2.bed_amount*365),4)*100,2) end) as bed_amount
+FROM t_settlement_set t
+LEFT JOIN t_hospital_bed t2 on t.orgname=t2.org_name
+left join ods_checkorg_list t3 on t3.orgid = t.orgid and t3.orgname = t.orgname
+);
+
+
+drop TABLE if EXISTS t_settlement_set_mz;
+drop TABLE if EXISTS t_settlement_set_zy;
+drop TABLE if EXISTS t_settlement_set;
+drop TABLE if EXISTS t_hospital_bed;
+
+]]></sql>
+
+<!-- 年度统计指标-医院手术情况统计的查询SQL -->
+<sql id="dws_surgery_stat"><![CDATA[
+select t.yyear,t.orgid,t.orgname_src,t.surgery_name,t.itemcode,t.itemname,
+t.cnt_sum,t.avg_day_cnt,t.max_day_cnt,t.max_price,t.min_price,
+substr(cast(max_day_date as CHAR),1,10) as max_day_date from medical.dws_surgery_stat t
+ inner join (select distinct  orgname ,local_tag ,owntype,hosplevel ,--${ods_checkorg_list}
+       max_allfund_pay from ods_checkorg_list a ) as t2 on t.orgname_src = t2.orgname   --${ods_checkorg_list}
+  where t.project='${project}'
+  and t.orgname_src rlike '${orgname}'
+  and t.surgery_name rlike '${surgery_name}'
+  and t.yyear>='${yearStart}'
+  and t.yyear<='${yearEnd}'
+  and t.etl_source='${etl_source}'
+  and t2.local_tag='${localTag}'
+  and t2.hosplevel='${hosplevel}'
+  and t2.owntype='${owntype}'
+  and t2.max_allfund_pay ${fundValType} ${maxAllfundPay}
+  order by ${orderby}
+
+]]></sql>
+
+
+
+<!-- 年度统计指标-医院每日在院人数的查询SQL -->
+<sql id="dws_org_day_sum"><![CDATA[
+select yyear,t.orgid,t.orgname_src,substr(cast(ddate as CHAR),1,10) as ddate,t.long_holiday_tag,
+  t.admit_cnt,t.leave_cnt,t.inhospital_cnt,t.project,t.etl_source
+ from medical.dws_org_day_sum t
+ inner join (select distinct  orgname ,local_tag ,owntype,hosplevel ,--${ods_checkorg_list}
+       max_allfund_pay from ods_checkorg_list a ) as t2 on t.orgname_src = t2.orgname   --${ods_checkorg_list}
+  where t.project='${project}'
+  and t.orgname_src rlike '${orgname}'
+  and t.yyear>='${yearStart}'
+  and t.yyear<='${yearEnd}'
+  and t.etl_source='${etl_source}'
+  and t2.local_tag='${localTag}'
+  and t2.hosplevel='${hosplevel}'
+  and t2.owntype='${owntype}'
+  and t2.max_allfund_pay ${fundValType} ${maxAllfundPay}
+  order by ${orderby}
+]]></sql>
+</mapper>

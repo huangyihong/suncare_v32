@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.drg.mapper.DrgRuleLimitesMapper">
+
+    <resultMap id="DrgRuleModel" type="com.ai.modules.drg.handle.model.DrgRuleModel" >
+        <result column="CATALOG_CODE" property="catalogCode" jdbcType="VARCHAR"/>
+        <result column="CATALOG_TYPE" property="catalogType" jdbcType="VARCHAR"/>
+        <collection property="ruleLimitesList" javaType="java.util.ArrayList" ofType="com.ai.modules.drg.entity.DrgRuleLimites">
+            <result column="ID" property="id" jdbcType="VARCHAR"/>
+            <result column="CATALOG_CODE" property="catalogCode" jdbcType="VARCHAR"/>
+            <result column="CATALOG_TYPE" property="catalogType" jdbcType="VARCHAR"/>
+            <result column="WHERE_TYPE" property="whereType" jdbcType="VARCHAR"/>
+            <result column="COMPARE_TYPE" property="compareType" jdbcType="VARCHAR"/>
+            <result column="COMPARE_VALUE" property="compareValue" jdbcType="VARCHAR"/>
+            <result column="COMPARE_LOGIC" property="compareLogic" jdbcType="VARCHAR"/>
+            <result column="COMPARE_TYPE2" property="compareType2" jdbcType="VARCHAR"/>
+            <result column="COMPARE_VALUE2" property="compareValue2" jdbcType="VARCHAR"/>
+            <result column="SEQ" property="seq" jdbcType="INTEGER"/>
+            <result column="LOGIC" property="logic" jdbcType="VARCHAR"/>
+        </collection>
+    </resultMap>
+
+    <select id="queryAdrgRule" resultMap="DrgRuleModel">
+        select
+            *
+        from
+            drg_rule_limites
+        where
+            version_code = #{versionCode}
+          and catalog_type = 'ADRG_V'
+        order by
+            catalog_type,
+            catalog_code,
+            seq;
+    </select>
+    <select id="queryDrgRule" resultMap="DrgRuleModel">
+        select
+            *
+        from
+            drg_rule_limites
+        where
+            version_code = #{versionCode}
+          and catalog_type = 'DRG_V'
+        order by
+            catalog_type,
+            catalog_code,
+            seq;
+    </select>
+</mapper>

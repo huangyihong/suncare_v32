@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+
+<!-- 明细部分查询, 不包含项目名称的查询 -->
+<sql id="detail_no_itemname"><![CDATA[
+-- 明细查询，项目名称查询条件为空，不加收费日期分组条件
+-- 定义住院明细
+drop TABLE if EXISTS medical_gbdp.t_zy_detail_set_${sqlSeq};
+create table medical_gbdp.t_zy_detail_set_${sqlSeq} as
+(
+  select orgid,orgname,t.visitid  as visitid,date_format(chargedate,'yyyy-MM') as charge,his_itemname,itemname,itemcode,
+    sum(amount) as sl,sum(fee) fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,concat(NULL,NULL) as biaozhi
+  from src_his_zy_charge_detail t where 1=1
+  --${NOORGID} and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  -- and t.visitid rlike '${visitid}'
+  and t.visitid in (${visitid_in})
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_zy_settlement t1 where t.visitid=t1.visitid and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  group by orgid,orgname,t.visitid, charge,his_itemname,itemname,itemcode
+ --${ODS} ,itemname_src,his_itemname_src
+
+) ;
+-- 加索引
+CREATE INDEX idx_zy_detail_set_${sqlSeq} ON medical_gbdp.t_zy_detail_set_${sqlSeq}  (visitid,orgid);
+
+
+-- 定义门诊查询数据集
+drop TABLE if EXISTS medical_gbdp.t_mz_detail_set_${sqlSeq};
+create table medical_gbdp.t_mz_detail_set_${sqlSeq} as
+(
+  select orgid,orgname,t.visitid  as visitid,date_format(chargedate,'yyyy-MM') as charge,his_itemname,itemname,itemcode,
+   sum(amount) as sl,sum(fee) fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,concat(NULL,NULL) as biaozhi
+  from src_his_mz_charge_detail t where 1=1
+  --${NOORGID} and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  -- and t.visitid rlike '${visitid}'
+  and t.visitid in (${visitid_in})
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_mz_settlement t1 where t.visitid=t1.visitid and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  group by orgid,orgname,t.visitid, charge,his_itemname,itemname,itemcode
+ --${ODS} ,itemname_src,his_itemname_src
+
+) ;
+-- 加索引
+CREATE INDEX idx_mz_detail_set_${sqlSeq} ON medical_gbdp.t_mz_detail_set_${sqlSeq}  (visitid,orgid);
+]]></sql>
+
+
+<!-- 明细部分查询, 包含项目名称的查询，按收费日期chargedate按天汇总输出 -->
+<sql id="detail_with_one_itemname"><![CDATA[
+-- 明细查询，只有1个项目名称查询条件，分组条件中包含收费日期
+-- 定义住院查询数据集
+drop TABLE if EXISTS medical_gbdp.t_zy_detail_set_${sqlSeq};
+create table medical_gbdp.t_zy_detail_set_${sqlSeq} as
+(
+  select orgid,orgname,t.visitid  as visitid,date_format(chargedate,'yyyy-MM') as charge,his_itemname,
+  itemname,itemcode,sum(amount) as sl,sum(fee) fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,concat(NULL,NULL) as biaozhi
+  from src_his_zy_charge_detail t where 1=1
+  --${SRC} and itemname rlike '${itemname}'
+  --${SRC} and his_itemname rlike '${his_itemname}'
+  --${ODS} and itemname_src rlike '${itemname}'
+  --${ODS} and his_itemname_src rlike '${his_itemname}'
+ --${NOORGID} and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  -- and t.visitid rlike '${visitid}'
+  and t.visitid in (${visitid_in})
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_zy_settlement t1 where t.visitid=t1.visitid and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  group by orgid,orgname,t.visitid,charge,his_itemname,itemname,itemcode
+  --${ODS} ,itemname_src,his_itemname_src
+) ;
+-- 加索引
+CREATE INDEX idx_zy_detail_set_${sqlSeq} ON medical_gbdp.t_zy_detail_set_${sqlSeq}  (visitid,orgid);
+
+
+-- 定义门诊查询明细数据集
+drop TABLE if EXISTS medical_gbdp.t_mz_detail_set_${sqlSeq};
+create table medical_gbdp.t_mz_detail_set_${sqlSeq} as
+(
+  select orgid,orgname,t.visitid  as visitid,date_format(chargedate,'yyyy-MM') as charge,his_itemname,itemname,itemcode,
+  sum(amount) as sl,sum(fee) fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,concat(NULL,NULL) as biaozhi
+  from src_his_mz_charge_detail t where 1=1
+  --${SRC} and itemname rlike '${itemname}'
+  --${SRC} and his_itemname rlike '${his_itemname}'
+  --${ODS} and itemname_src rlike '${itemname}'
+  --${ODS} and his_itemname_src rlike '${his_itemname}'
+  --${NOORGID} and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  -- and t.visitid rlike '${visitid}'
+  and t.visitid in (${visitid_in})
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_mz_settlement t1 where t.visitid=t1.visitid and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  group by orgid,orgname,t.visitid, charge,his_itemname,itemname,itemcode
+  --${ODS} ,itemname_src,his_itemname_src
+) ;
+-- 加索引
+CREATE INDEX idx_mz_detail_set_${sqlSeq} ON medical_gbdp.t_mz_detail_set_${sqlSeq}  (visitid,orgid);
+]]></sql>
+
+
+<!-- 最终结果集 -->
+<sql id="finalQuery"><![CDATA[
+-- 定义住院master主表查询数据集
+drop TABLE if EXISTS medical_gbdp.t_master_zy_query_${sqlSeq};
+create table medical_gbdp.t_master_zy_query_${sqlSeq} as
+(
+  select t.orgid,
+  t.orgname,
+  t.visitid  as visitid,
+  concat(trim(clientname),date_format(birthday,'yyyy-MM-dd')) as name
+  from src_his_zy_master_info t where 1=1
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  -- and t.visitid rlike '${visitid}'
+  and t.visitid in (${visitid_in})
+  and case_id rlike '${case_id}'
+  and concat(trim(t.clientname),substr(t.birthday,1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+) ;
+-- 加索引
+CREATE INDEX idx_master_zy_query_${sqlSeq} ON medical_gbdp.t_master_zy_query_${sqlSeq}  (visitid,orgid);
+
+-- 住院查询最终结果
+drop TABLE if EXISTS medical_gbdp.t_zy_final_set_${sqlSeq};
+create table medical_gbdp.t_zy_final_set_${sqlSeq} as
+(
+  select itemname,t1.name,
+ --${month_count}
+  sum(sl) as sl,
+  sum(fy) as fy
+  from medical_gbdp.t_zy_detail_set_${sqlSeq} t
+  inner join medical_gbdp.t_master_zy_query_${sqlSeq} t1
+  on t.visitid=t1.visitid and t.orgid=t1.orgid
+  group by t1.name,itemname
+  order by fy desc
+)
+;
+
+
+
+
+-- 定义门诊master主表查询数据集
+drop TABLE if EXISTS medical_gbdp.t_master_mz_query_${sqlSeq};
+create table medical_gbdp.t_master_mz_query_${sqlSeq} as
+(
+  select t.orgid,
+  t.orgname,
+  t.visitid as visitid,
+  concat(trim(clientname),date_format(birthday,'yyyy-MM-dd')) as name
+  from src_his_mz_master_info t where 1=1
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  -- and t.visitid rlike '${visitid}'
+  and t.visitid in (${visitid_in})
+  and '1'='${case_id}'
+  and concat(trim(t.clientname),substr(t.birthday,1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and visitdate>='${leaveDateStart}'
+  and visitdate<='${leaveDateEnd}'
+) ;
+-- 加索引
+CREATE INDEX idx_master_mz_query_${sqlSeq} ON medical_gbdp.t_master_mz_query_${sqlSeq}  (visitid,orgid);
+
+
+-- 门诊查询的最终结果
+drop TABLE if EXISTS medical_gbdp.t_mz_final_set_${sqlSeq};
+create table medical_gbdp.t_mz_final_set_${sqlSeq} as
+(
+  select itemname,t1.name,
+ --${month_count}
+  sum(sl) as sl,
+  sum(fy) as fy
+  from  medical_gbdp.t_mz_detail_set_${sqlSeq} t
+  inner join medical_gbdp.t_master_mz_query_${sqlSeq} t1
+  on t.visitid=t1.visitid and t.orgid=t1.orgid
+  group by t1.name,itemname
+  order by fy desc
+)
+;
+
+
+-- 最终结果查询
+drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as
+(
+select * from
+  (select * from medical_gbdp.t_zy_final_set_${sqlSeq} union all select * from medical_gbdp.t_mz_final_set_${sqlSeq} ) t   --${ZY+MM}
+  medical_gbdp.t_zy_final_set_${sqlSeq} t   --${ZY}
+  medical_gbdp.t_mz_final_set_${sqlSeq} t   --${MM}
+  limit ${limitCount}
+  );
+
+  select * from medical_gbdp.t_dc_result_${sqlSeq} t
+  order by fy desc
+]]></sql>
+</mapper>
+
+

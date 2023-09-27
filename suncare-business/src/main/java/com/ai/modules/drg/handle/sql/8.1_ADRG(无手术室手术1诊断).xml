@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 8.ADRG组（无手术室手术1诊断） -->
+<mapper>
+    <sql id="script"><![CDATA[
+        --手术室手术明细
+drop table if exists medical_gbdp.t_drg_detail_${seq};
+create table medical_gbdp.t_drg_detail_${seq} as(
+select
+	distinct visitid, orgid from medical_gbdp.t_visit_shoushu_${seq}
+where
+	itemcode in(
+	select code from medical_gbdp.drg_catalog_detail a
+	where a.catalog_id = '${surgeryCatalogId}')
+) distributed by (visitid,orgid);
+create index t_drg_detail_${seq}_idx1 on medical_gbdp.t_drg_detail_${seq}(visitid, orgid);
+
+--未找到ADRG分组的数据
+drop table if exists medical_gbdp.t_medical_visit_mdc_${seq};
+create table medical_gbdp.t_medical_visit_mdc_${seq} as(
+select * from medical_gbdp.t_visit_mdc_has_shoushu_${seq} a
+where
+    a.mdc!='MDCA'
+	and not exists(
+	select 1 from medical_gbdp.t_drg_detail_${seq} b where a.visitid=b.visitid and a.orgid=b.orgid)
+	and not exists(
+	select 1 from medical_gbdp.medical_visit_adrg c where batch_id='${batchId}' and a.visitid=c.visitid and a.orgid=c.orgid and a.mdc=c.mdc
+	)
+	and a.batch_id='${batchId}'
+) distributed by (visitid,orgid);
+create index t_medical_visit_mdc_${seq}_idx1 on medical_gbdp.t_medical_visit_mdc_${seq}(visitid, orgid);
+
+--病历手术（不包含手术室手术）
+drop table if exists medical_gbdp.t_visit_surgery_${seq};
+create table medical_gbdp.t_visit_surgery_${seq} as(
+select
+	a.visitid,
+	a.orgid,
+	string_agg(a.itemcode, ',' order by a.itemcode) adrg_surgery_code,
+	string_agg(a.itemname, ',' order by a.itemcode) adrg_surgery_name
+from medical_gbdp.t_visit_shoushu_${seq} a
+where a.itemcode not in(
+select code from medical_gbdp.drg_catalog_detail
+	where catalog_id = '${surgeryCatalogId}'
+) group by a.visitid,a.orgid
+) distributed by (visitid,orgid);
+create index t_visit_surgery_${seq}_idx1 on medical_gbdp.t_visit_surgery_${seq}(visitid, orgid);
+
+drop table if exists medical_gbdp.t_adrg_rule_${seq};
+create table medical_gbdp.t_adrg_rule_${seq} as(
+--1诊断规则
+select * from medical_gbdp.drg_catalog_detail a
+where
+	a.catalog_id = '${adrgDiagCatalogId}'
+	and condition_code = '05'
+	and a.diag_code1 is not null
+);
+drop table if exists medical_gbdp.t_adrg_1_${seq};
+create table medical_gbdp.t_adrg_1_${seq} as(
+select distinct
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	b.adrg_catalog_code adrg,
+	a.mdc_diag_code,
+	a.mdc_diag_name,
+	diag.diseasecode adrg_diag_code,
+	replace(diag.diseasename,',','，') adrg_diag_name
+from
+	medical_gbdp.t_medical_visit_mdc_${seq} a
+join medical_gbdp.t_adrg_rule_${seq} b on a.mdc = b.mdc_catalog_code
+join src_his_zy_diag diag on a.visitid=diag.visitid and a.orgid=diag.orgid and b.diag_code1 = diag.diseasecode
+where b.diag_code1 is not null
+) distributed by (visitid,orgid);
+create index t_adrg_1_${seq}_idx1 on medical_gbdp.t_adrg_1_${seq} using btree (visitid, orgid);
+
+drop table if exists medical_gbdp.t_mdc_diag_${seq};
+create table medical_gbdp.t_mdc_diag_${seq} as(
+--mdc关联诊断组
+select * from medical_gbdp.drg_catalog_detail dcd where catalog_id='${mdcDiagCatalogId}'
+);
+drop table if exists medical_gbdp.t_adrg_2_${seq};
+create table medical_gbdp.t_adrg_2_${seq} as(
+select distinct
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	b.adrg_catalog_code adrg,
+	a.mdc_diag_code,
+	a.mdc_diag_name,
+	diag.diseasecode adrg_diag_code,
+	replace(diag.diseasename,',','，') adrg_diag_name
+from
+	medical_gbdp.t_medical_visit_mdc_${seq} a
+join medical_gbdp.t_adrg_rule_${seq} b on a.mdc = b.mdc_catalog_code
+join medical_gbdp.t_mdc_diag_${seq} c on c.mdc_catalog_code=b.mdc_catalog_code
+join src_his_zy_diag diag on a.visitid=diag.visitid and a.orgid=diag.orgid and diag.diseasecode=c.code
+where b.diag_group_code1 is not null
+) distributed by (visitid,orgid);
+
+drop table if exists medical_gbdp.t_adrg_${seq};
+create table medical_gbdp.t_adrg_${seq} as(
+select * from medical_gbdp.t_adrg_1_${seq}
+union
+select * from medical_gbdp.t_adrg_2_${seq}
+) distributed by (visitid,orgid);
+create index t_adrg_${seq}_idx1 on medical_gbdp.t_adrg_${seq} using btree (visitid, orgid);
+
+with t_adrg_group as(
+select
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	a.adrg,
+	a.mdc_diag_code,
+	a.mdc_diag_name,
+	a.adrg_diag_code,
+	a.adrg_diag_name,
+	b.adrg_surgery_code,
+	b.adrg_surgery_name
+from medical_gbdp.t_adrg_${seq} a
+join medical_gbdp.t_visit_surgery_${seq} b on a.visitid=b.visitid and a.orgid=b.orgid
+)
+insert into medical_gbdp.medical_visit_adrg(
+	id,
+	batch_id,
+	visitid,
+	orgid,
+	mdc,
+	mdc_name,
+	adrg,
+	adrg_name,
+	adrg_step,
+	adrg_step_desc,
+	project,
+	mdc_diag_code,
+	mdc_diag_name,
+	adrg_diag_code,
+	adrg_diag_name,
+	adrg_surgery_code,
+	adrg_surgery_name,
+	created_by,
+	created_by_name,
+	created_time)
+select
+	md5(concat_ws('_', '${batchId}', a.visitid, a.orgid, a.mdc, a.adrg, a.adrg_diag_code, a.adrg_surgery_code)) id,
+	'${batchId}' batch_id,
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	c.name mdc_name,
+	a.adrg,
+	b.name adrg_name,
+	'8',
+	'8.ADRG无手术室手术1诊断',
+	'${project}',
+	a.mdc_diag_code,
+	a.mdc_diag_name,
+	a.adrg_diag_code,
+	a.adrg_diag_name,
+	a.adrg_surgery_code,
+	a.adrg_surgery_name,
+	null created_by,
+	null created_by_name,
+	null created_time
+from t_adrg_group a
+join medical_gbdp.t_catalog_adrg_${seq} b on a.adrg = b.code and a.mdc = b.mdc_catalog_code
+join medical_gbdp.t_catalog_mdc_${seq} c on a.mdc=c.code
+where
+	b.mdc_catalog_code != 'MDCA';
+    ]]></sql>
+</mapper>

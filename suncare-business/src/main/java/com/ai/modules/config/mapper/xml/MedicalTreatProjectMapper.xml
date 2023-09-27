@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.config.mapper.MedicalTreatProjectMapper">
+
+<select id="selectTreatProjectEquipmentPageVO" resultMap="com.ai.modules.config.vo.mybatis-plus_MedicalTreatProjectEquipmentVO">
+select * from (
+select t1.id id,t1.code code,t1.name name,t1.type_Code type_Code,t1.type_Name type_Name,t1.state state from  MEDICAL_TREAT_PROJECT t1
+union
+select t2.id id,t2.productcode code,t2.productname name,t2.equipment_Class_Code type_Code,t2.equipment_Class_Name type_Name,t2.state state from  MEDICAL_EQUIPMENT t2
+) t ${ew.customSqlSegment}
+</select>
+
+    <select id="queryCodeNameIdInCodes" resultMap="com.ai.modules.config.vo.mybatis-plus_MedicalCodeNameVO">
+        select t.CODE,t.ID,t.NAME from
+        MEDICAL_TREAT_PROJECT t where t.state ='1' and t.code
+        in
+        <foreach collection="codes" item="code" index="index" open="(" close=")" separator=",">
+            #{code}
+        </foreach>
+        order by t.code
+    </select>
+</mapper>

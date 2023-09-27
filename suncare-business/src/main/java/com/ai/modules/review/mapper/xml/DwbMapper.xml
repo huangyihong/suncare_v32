@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.review.mapper.DwbMapper">
+    <select id="dwbDiagList" resultType="com.ai.modules.review.vo.DwbDiagVo">
+       select * from medical.dwb_diag t ${ew.customSqlSegment}
+    </select>
+
+    <select id="dwbMasterInfoList" resultType="com.ai.modules.review.vo.DwbMasterInfoVo">
+       select * from medical.dwb_master_info t ${ew.customSqlSegment}
+    </select>
+
+    <select id="dwbChargeDetailList" resultType="com.ai.modules.review.vo.DwbChargeDetailVo">
+       select * from medical.dwb_charge_detail t ${ew.customSqlSegment}
+    </select>
+
+    <select id="dwbClientList" resultType="com.ai.modules.review.vo.DwbClientVo">
+       select * from medical.dwb_client t ${ew.customSqlSegment}
+    </select>
+
+    <select id="dwbOrganizationList" resultType="com.ai.modules.review.vo.DwbOrganizationVo">
+       select * from medical_gbdp.STD_ORGANIZATION t ${ew.customSqlSegment}
+    </select>
+
+    <select id="dwbOrderList" resultType="com.ai.modules.review.vo.DwbOrderVo">
+       select * from medical.dwb_order t ${ew.customSqlSegment}
+    </select>
+
+    <select id="dwbDoctorList" resultType="com.ai.modules.review.vo.DwbDoctorVo">
+       select * from medical.dwb_doctor t ${ew.customSqlSegment}
+    </select>
+
+</mapper>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.engine.mapper.QueryMedicalFormalFlowRuleGradeMapper">
+
+    <select id="queryEngineRuleGrade" resultType="com.ai.modules.engine.model.EngineRuleGrade">
+        SELECT evaluate_field field_name, standard_val standard, weight, method
+        from his_formal_flow_rule_grade
+        WHERE BATCH_ID = #{batchId, jdbcType=VARCHAR}
+        and case_id = #{caseId, jdbcType=VARCHAR} 
+    </select>
+</mapper>

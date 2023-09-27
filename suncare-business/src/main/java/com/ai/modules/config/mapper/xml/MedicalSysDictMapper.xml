@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.config.mapper.MedicalSysDictMapper">
+    <!-- 通过字典code,值key获取字典数据 -->
+    <select id="queryDictTextByKey" parameterType="String"  resultType="String">
+		   SELECT t.VALUE from MEDICAL_SYS_DICT t where t.DICT_TYPE = #{code} and t.code = #{key}
+	</select>
+
+</mapper>

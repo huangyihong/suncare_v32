@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.ybChargeSearch.mapper.YbChargeCaseMapper">
+
+    <select id="selectByStr" resultType="com.ai.modules.ybChargeSearch.entity.YbChargeCase">
+        select * from yb_charge_case
+        <where>
+            ${query}
+        </where>
+    </select>
+</mapper>

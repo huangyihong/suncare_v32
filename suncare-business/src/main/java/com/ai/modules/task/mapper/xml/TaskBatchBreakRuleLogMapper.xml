@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.task.mapper.TaskBatchBreakRuleLogMapper">
+	<select id="queryTaskBatchBreakRuleLog" resultMap="com.ai.modules.task.vo.mybatis-plus_TaskBatchBreakRuleLogVO">
+		select a.*,
+       b.rule_type,
+       b.rule_source,
+       b.rule_basis,
+       b.rule_basis_type,
+       b.message rule_remark,
+       b.action_id,
+       b.action_type,
+       b.action_name,
+       b.rule_source_code,
+       b.rule_limit
+  from task_batch_break_rule_log a
+  left join medical_rule_config b
+    on a.item_id = b.rule_id
+    ${ew.customSqlSegment} order by log_id
+	</select>
+
+	<select id="queryDruguseRuleLog" resultMap="com.ai.modules.task.vo.mybatis-plus_TaskBatchBreakRuleLogVO">
+		select a.*,
+       b.rule_type,
+       b.rule_source,
+       b.rule_basis,
+       b.rule_basis_type,
+       b.message rule_remark,
+       b.action_id,
+       b.action_type,
+       b.action_name,
+       b.rule_source_code,
+       b.rule_limit
+  from task_batch_break_rule_log a
+  left join medical_rule_config b
+    on a.item_id = b.rule_id
+    ${ew.customSqlSegment} order by log_id
+	</select>
+
+	<select id="queryTaskBatchBreakRuleLimit" resultType="java.util.Map">
+		select distinct a.ITEM_TYPE, b.RULE_LIMIT
+  from task_batch_break_rule_log a
+  join medical_rule_config b
+    on a.item_id = b.rule_id
+    ${ew.customSqlSegment}
+	</select>
+
+	<select id="queryTaskBatchBreakRuleAction" resultType="java.util.Map">
+		select distinct b.ACTION_ID, b.ACTION_NAME
+  from task_batch_break_rule_log a
+  join medical_rule_config b
+    on a.item_id = b.rule_id
+    ${ew.customSqlSegment}
+	</select>
+
+    <select id="queryTaskBatchBreakRuleEngine" resultType="java.util.Map">
+		select * from(
+		select distinct ITEM_TYPE,
+<!--                 decode(item_type,
+                       'drug',
+                       '药品合规',
+                       'charge',
+                       '收费合规',
+                       'treat',
+                       '诊疗合理',
+                       'NEWDRUG',
+                       '药品合规（新）',
+                       'NEWCHARGE',
+                       '收费合规（新）',
+                       'NEWTREAT',
+                       '诊疗合理（新）',
+                       'DRUGUSE',
+                       '用药合理') item_type_name -->
+                        (CASE item_type
+                             WHEN 'drug' THEN '药品合规'
+                             WHEN 'charge' THEN '收费合规'
+                             WHEN 'treat' THEN '诊疗合理'
+                             WHEN 'NEWDRUG' THEN '药品合规（新）'
+                             WHEN 'NEWCHARGE' THEN '收费合规（新）'
+                            WHEN 'NEWTREAT' THEN '诊疗合理（新）'
+                            WHEN 'DRUGUSE' THEN '用药合理' END
+                            ) ITEM_TYPE_NAME
+  from task_batch_break_rule_log t
+  where item_type not in('DRUGUSE') and batch_id=#{batchId, jdbcType=VARCHAR}
+  union all
+        <!--      select distinct item_stype, decode(item_stype, 'DRUGUSE', '用药合理', '重复用药') item_type_name -->
+      select distinct ITEM_STYPE, IF(item_stype = 'DRUGUSE', '用药合理', '重复用药') ITEM_TYPE_NAME
+  from task_batch_break_rule_log t
+  where batch_id=#{batchId, jdbcType=VARCHAR} and item_type='DRUGUSE') x
+  <!-- order by decode(item_type,
+                 'drug',
+                 '1',
+                 'charge',
+                 '2',
+                 'treat',
+                 '3',
+                 'NEWDRUG',
+                 '4',
+                 'NEWCHARGE',
+                 '5',
+                 'NEWTREAT',
+                 '6',
+                 'DRUGUSE',
+                 '7',
+                 'DRUGREPEAT',
+                 '8') -->
+      order by  (CASE item_type
+                    WHEN 'drug' THEN '1'
+                    WHEN 'charge' THEN '2'
+                    WHEN 'treat' THEN '3'
+                    WHEN 'NEWDRUG' THEN '4'
+                    WHEN 'NEWCHARGE' THEN '5'
+                    WHEN 'NEWTREAT' THEN '6'
+                    WHEN 'DRUGUSE' THEN '7'
+                    WHEN 'DRUGREPEAT' THEN '8'
+                    END
+               )
+	</select>
+</mapper>

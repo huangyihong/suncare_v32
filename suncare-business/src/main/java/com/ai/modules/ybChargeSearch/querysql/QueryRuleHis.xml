@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+    <sql id="zy_ruleBlackList"><![CDATA[
+tmp_zy_detail as (
+ --满足准入条件的项目明细（住院）
+ select his_zy_id visitid,orgid,orgname,substr(cast(chargedate as VARCHAR),1,10) charge,COALESCE(chargeattri,'') as chargeattri,his_itemname,itemname,itemcode,
+ sum(amount) as sl, sum(fee) fy
+ from src_his_zy_charge_detail x where 1=1
+ and orgname rlike '${orgname}'
+ and orgid in ${orgid}
+ and itemname = '${itemname}'
+ and his_zy_id rlike '${visitid}'
+ -- 不包含自费明细  --
+ and exists(select 1 from src_his_zy_settlement t where x.his_zy_id=t.his_zy_id and x.orgid=t.orgid and t.fundpay>0)
+ and his_zy_id in(select his_zy_id from src_his_zy_master_info m where 1=1
+ and m.admitdate>='${startDate}'
+ and m.admitdate<='${endDate}'
+ and m.visittype rlike '${visittype}'
+ and m.case_id rlike '${caseid}'
+ and m.leavedate>='${leaveStartDate}'
+ and m.leavedate<='${leaveEndDate}'
+ and m.clientname rlike '${clientname}'
+ and m.id_no rlike '${idNo}'
+ )
+ group by his_zy_id,orgid,orgname,substr(cast(chargedate as VARCHAR),1,10), chargeattri,his_itemname,itemname,itemcode
+),
+table_zy_detail as (
+ --项目明细黑名单（住院）
+ select x.* from tmp_zy_detail x
+ where visitid not in(
+ select his_zy_id from src_his_zy_master_info y --${zy_master}
+ select his_zy_id from src_his_zy_settlement y --${zy_settlement}
+ where ${where}
+ )
+),
+table_zy_diag as (
+  --查询疾病名称（住院）
+  select orgid,orgname,his_visitid visitid,
+  group_concat(distinct case when not(diag.primarydiag_sign='1' or diag.primarydiag_sign='主诊断') then diseasename end,'_') as dis,
+  group_concat(case when diag.primarydiag_sign='1' or diag.primarydiag_sign='主诊断' then diseasename end ,'_') as dis_main
+  from src_his_zy_diag diag
+  where diag.his_visitid in(select visitid from table_zy_detail)
+  GROUP BY orgid,orgname,his_visitid
+),
+table_zy_result as (
+ --查询结果（住院）
+ select x.*,
+  substr(y.admitdate,1,4) as yyear,y.case_id,y.doctorname,y.admit_deptname deptname,y.visittype,
+  concat(trim(y.clientname), substr(y.birthday,1,10)) as name,sex,
+  substr(y.admitdate,1,10) as visitdate,substr(y.leavedate,1,10) as leavedate,
+  months_between(y.admitdate, y.birthday)/12 yearage,
+  diag.dis,diag.dis_main
+  from table_zy_detail x join src_his_zy_master_info y on x.visitid=y.his_zy_id
+  left join table_zy_diag diag on x.visitid=diag.visitid and x.orgid=diag.orgid
+ )
+    ]]></sql>
+
+    <sql id="mz_ruleBlackList"><![CDATA[
+tmp_mz_detail as (
+ --满足准入条件的项目明细（门诊）
+ select his_mz_id visitid,orgid,orgname,substr(cast(chargedate as VARCHAR),1,10) charge,COALESCE(chargeattri,'') as chargeattri,his_itemname,itemname,itemcode,
+ sum(amount) as sl, sum(fee) fy
+ from src_his_mz_charge_detail x where 1=1
+ and orgname rlike '${orgname}'
+ and orgid in ${orgid}
+ and itemname = '${itemname}'
+ and his_mz_id rlike '${visitid}'
+ -- 不包含自费明细  --
+ and exists(select 1 from src_his_mz_settlement t where x.his_mz_id=t.his_mz_id and x.orgid=t.orgid and t.fundpay>0)
+ and his_mz_id in(select his_mz_id from src_his_mz_master_info m where 1=1
+ and m.visitdate>='${startDate}'
+ and m.visitdate<='${endDate}'
+ and m.visittype rlike '${visittype}'
+ --and m.case_id rlike '${caseid}'
+ and m.clientname rlike '${clientname}'
+ and m.id_no rlike '${idNo}'
+ )
+ group by his_mz_id,orgid,orgname,substr(cast(chargedate as VARCHAR),1,10), chargeattri,his_itemname,itemname,itemcode
+),
+table_mz_detail as (
+ --项目明细黑名单（门诊）
+ select x.* from tmp_mz_detail x
+ where visitid not in(
+ select his_mz_id from src_his_mz_master_info y where ${where}
+ )
+),
+table_mz_diag as (
+  --查询疾病名称（门诊）
+  select orgid,orgname,his_mz_id visitid,
+  group_concat(distinct case when not(diag.primarydiag_sign='1' or diag.primarydiag_sign='主诊断') then diseasename end,'_') as dis,
+  group_concat(case when diag.primarydiag_sign='1' or diag.primarydiag_sign='主诊断' then diseasename end ,'_') as dis_main
+  from src_his_mz_diag diag
+  where diag.his_mz_id in(select visitid from table_mz_detail)
+  GROUP BY orgid,orgname,his_mz_id
+),
+table_mz_result as (
+ --查询结果（门诊）
+ select x.*,
+  substr(y.visitdate,1,4) as yyear,'' case_id,y.doctorname,y.deptname,y.visittype,
+  concat(trim(y.clientname), substr(y.birthday,1,10)) as name,sex,
+  substr(y.visitdate,1,10) as visitdate,'' leavedate,
+  months_between(y.visitdate, y.birthday)/12 yearage,
+  diag.dis,diag.dis_main
+  from table_mz_detail x join src_his_mz_master_info y on x.visitid=y.his_mz_id
+  left join table_mz_diag diag on x.visitid=diag.visitid and x.orgid=diag.orgid
+)
+    ]]></sql>
+
+    <sql id="ruleBlackList">
+ --查询结果
+ select * from table_zy_result union all select * from table_mz_result --${ZY+MM}
+ select * from table_zy_result t --${ZY}
+ select * from table_mz_result t --${MM}
+    </sql>
+</mapper>

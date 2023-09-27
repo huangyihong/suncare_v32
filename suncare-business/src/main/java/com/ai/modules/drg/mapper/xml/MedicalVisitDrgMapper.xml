@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.drg.mapper.MedicalVisitDrgMapper">
+
+    <select id="queryDiagByVisitid" resultType="java.util.Map">
+        select
+            primarydiag_sign,
+            string_agg(distinct(diseasecode), ',') diseasecode,
+            string_agg(distinct(diseasename), ',') diseasename
+        from
+            ${schema}.src_his_zy_diag
+        where
+            visitid = #{visitid}
+          and orgid = #{orgid}
+        group by
+            primarydiag_sign
+        order by diseasecode
+    </select>
+
+    <select id="querySurgeryByVisitid" resultType="java.util.Map">
+        select
+            string_agg(operationcode, ',' order by operationcode) operationcode,
+            string_agg(operationname, ',' order by operationcode) operationname,
+            string_agg(substring(cast(operationdate as varchar), 0, 11), ',' order by operationcode) operationdate
+        from
+            ${schema}.src_his_zy_surgery a
+        where
+            a.visitid = #{visitid}
+          and a.orgid = #{orgid}
+          and a.operationcode ~ replace(#{surgeryCode}, ',', '|')
+    </select>
+
+    <select id="countRoomSurgeryByVisitid" resultType="java.lang.Integer">
+        select count(1) cnt
+        from (
+            select visitid,orgid,regexp_split_to_table(adrg_surgery_code, ',') adrg_surgery_code
+            from medical_gbdp.medical_visit_drg
+            where id = #{id}
+        )
+        where adrg_surgery_code in(
+            select
+            code
+            from medical_gbdp.drg_catalog_detail
+            where catalog_type = 'SURGERY_INFO_V'
+              and catalog_id = #{catalog.surgeryCatalogId})
+    </select>
+
+    <select id="getVisitDayAge" resultType="java.lang.Integer">
+        select extract(day from (admitdate::timestamp-birthday::timestamp)) day_age from  ${schema}.src_his_zy_master_info t where t.visitid = #{visitid}
+    </select>
+</mapper>

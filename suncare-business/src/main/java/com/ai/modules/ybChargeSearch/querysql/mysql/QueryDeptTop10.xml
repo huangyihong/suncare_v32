@@ -1,0 +1,620 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- 科室就诊费用排名前10就诊明细 -->
+<mapper>
+
+
+<!-- 查询个人收费明细（按就诊）新方法 -->
+<sql id="querySql_YB_itenlist_by_visit"><![CDATA[
+-- 读取标签表
+drop TABLE if EXISTS medical_gbdp.t_tagname_set_${sqlSeq};
+create table medical_gbdp.t_tagname_set_${sqlSeq} as
+ (
+  SELECT
+  group_concat(distinct tag_name) as tag_name,
+  orgname_src,visitid_src
+  from medical.dwb_visitid_tag where 1=1
+  and etl_source='${etl_source}'
+  and project='${project}'
+  and tag_name='${tagName}'
+  and orgname_src rlike '${orgname}'
+  GROUP BY orgname_src,visitid_src
+);
+
+-- 加索引
+CREATE INDEX idx_t_tagname_set_${sqlSeq} ON medical_gbdp.t_tagname_set_${sqlSeq}   (visitid_src,orgname_src(255));
+
+-- 查询明细表
+drop TABLE if EXISTS medical_gbdp.t_detail_${sqlSeq};
+create table medical_gbdp.t_detail_${sqlSeq} as (
+  select t.* ,t2.his_itemname, t2.itemname,t2.itemcode,
+  t2.chargeattri,t2.selfpay_prop,t2.sl as amount ,t2.fy as fee ,t2.itemprice
+  from
+  (
+    select yyear,orgid,orgname,visitid, case_id,doctorname,deptname,visittype,insurancetypename,
+    name,sex,visitdate,leavedate,yearage,dis_all as dis, zy_days as visitdays ,
+    dis_primary as dis_main ,totalfee,fundpay
+    from dc_src_yb_master_diag_settl  where 1=1
+    and orgid in (${orgid})
+    --${NOORGID} and orgname rlike '${orgname}'
+    and visitid in (${visitid_in})
+    and doctorname rlike '${doctorname}'
+    and deptname rlike '${deptname}'
+    and visittype_code='MM'  --${MM}
+    and visittype_code='ZY'  --${ZY}
+    and visittype_code='GY'  --${GY}
+    and case_id rlike '${case_id}'
+    and name like '${clientname}%'
+    and id_no in (${idNo_in})
+    and visitdate>='${dateStart}'
+    and visitdate<='${dateEnd}'
+    and leavedate>='${leaveDateStart}'
+    and leavedate<='${leaveDateEnd}'
+    ) t
+    inner join
+    ( select orgid,visitid,  his_itemname,
+    itemname,itemcode,chargeattri,selfpay_prop,sl,fy ,itemprice
+    from dc_src_yb_charge_detail_visit where 1=1
+    and orgid in (${orgid})
+    --${NOORGID} and orgname rlike '${orgname}'
+    and visitid in (${visitid_in})
+    and paytype='funpay'  --${fundpayonly} --${NOTGY}
+    and paytype='gy'  --${GY} 购药
+    ) t2
+    on t.orgid = t2.orgid and t.visitid = t2.visitid
+
+    limit ${limitCount}
+);
+
+-- 创建最终结果表
+drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as (
+ select t.* from medical_gbdp.t_detail_${sqlSeq} t
+   left join  -- 标签名称条件为空，用left join  --${no_tagName}
+   inner join -- 标签名称条件不为空，inner join  --${tagName}
+
+   medical_gbdp.t_tagname_set_${sqlSeq} t1
+   on t.orgname=t1.orgname_src and t.visitid=t1.visitid_src
+);
+-- limited-max-count=1000000
+select * from medical_gbdp.t_dc_result_${sqlSeq} t order by visitdate
+]]></sql>
+
+<!-- 查询个人收费明细（按就诊）新方法查询 科室前10 -->
+<sql id="querySql_YB_itenlist_by_dept_top10"><![CDATA[
+-- 读取标签表
+drop TABLE if EXISTS medical_gbdp.t_tagname_set_${sqlSeq};
+create table medical_gbdp.t_tagname_set_${sqlSeq} as
+ (
+  SELECT
+  group_concat(distinct tag_name) as tag_name,
+  orgname_src,visitid_src
+  from medical.dwb_visitid_tag where 1=1
+  and etl_source='${etl_source}'
+  and project='${project}'
+  and tag_name='${tagName}'
+  and orgname_src rlike '${orgname}'
+  GROUP BY orgname_src,visitid_src
+);
+
+-- 加索引
+CREATE INDEX idx_t_tagname_set_${sqlSeq} ON medical_gbdp.t_tagname_set_${sqlSeq} (visitid_src,orgname_src(255));
+
+-- 定义每个医院、每个科室、每年、在指定结算时间内的前10条
+drop TABLE if EXISTS medical_gbdp.t_master_top10_${sqlSeq};
+create table medical_gbdp.t_master_top10_${sqlSeq} as
+(
+ select * from (
+  select yyear,orgid,orgname,visitid, case_id,doctorname,deptname,visittype,insurancetypename,
+    name,sex,visitdate,leavedate,yearage,dis_all as dis, zy_days as visitdays ,
+    dis_primary as dis_main ,totalfee,fundpay,
+    row_number() over(partition by orgname,deptname,yyear  order by totalfee desc) as rank1
+  from dc_src_yb_master_diag_settl t where 1=1
+    and orgid in (${orgid})
+    --${NOORGID} and orgname rlike '${orgname}'
+    and visitid in (${visitid_in})
+    and fundpay>0
+    and doctorname rlike '${doctorname}'
+    and deptname rlike '${deptname}'
+    and visittype_code='MM'  --${MM}
+    and visittype_code='ZY'  --${ZY}
+    and visittype_code='GY'  --${GY}
+    and case_id rlike '${case_id}'
+    and name like '${clientname}%'
+    and id_no in (${idNo_in})
+    and visitdate>='${dateStart}'
+    and visitdate<='${dateEnd}'
+    and leavedate>='${leaveDateStart}'
+    and leavedate<='${leaveDateEnd}'
+ ) t2 where t2.rank1<11
+);
+
+-- 查询明细表
+drop TABLE if EXISTS medical_gbdp.t_detail_${sqlSeq};
+create table medical_gbdp.t_detail_${sqlSeq} as (
+  select t.* ,t2.his_itemname, t2.itemname,t2.itemcode,
+  t2.chargeattri,t2.selfpay_prop,t2.sl as amount ,t2.fy as fee ,t2.itemprice
+  from
+    medical_gbdp.t_master_top10_${sqlSeq} t
+    inner join
+    ( select orgid,visitid,  his_itemname,
+    itemname,itemcode,chargeattri,selfpay_prop,sl,fy ,itemprice
+    from dc_src_yb_charge_detail_visit where 1=1
+    and orgid in (${orgid})
+    --${NOORGID} and orgname rlike '${orgname}'
+    and visitid in (${visitid_in})
+    and paytype='funpay'  --${fundpayonly} --${NOTGY}
+    and paytype='gy'  --${GY} 购药
+    ) t2
+    on t.orgid = t2.orgid and t.visitid = t2.visitid
+
+    limit ${limitCount}
+);
+
+-- 创建最终结果表
+drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as (
+ select t.* from medical_gbdp.t_detail_${sqlSeq} t
+   left join  -- 标签名称条件为空，用left join  --${no_tagName}
+   inner join -- 标签名称条件不为空，inner join  --${tagName}
+
+   medical_gbdp.t_tagname_set_${sqlSeq} t1
+   on t.orgname=t1.orgname_src and t.visitid=t1.visitid_src
+);
+
+-- limited-max-count=1000000
+select * from medical_gbdp.t_dc_result_${sqlSeq} t order by visitdate
+]]></sql>
+
+
+
+<!-- 科室就诊费用排名前10就诊明细 医保 结算部分 -->
+<sql id="querySql_YB_settlement"><![CDATA[
+-- 定义结算表
+drop TABLE if EXISTS medical_gbdp.t_settlement_set_${sqlSeq};
+create table medical_gbdp.t_settlement_set_${sqlSeq} as
+(
+  select visitid,orgid,orgname, sum(totalfee) as totalfee,sum(fundpay) as fundpay
+  from src_yb_settlement t where 1=1
+  -- 不包含自费就诊记录 ${fundpayonly}
+  and fundpay>0 --${fundpayonly}
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.visitid in (${visitid_in})
+  group by visitid,orgid,orgname
+);
+-- 加索引
+CREATE INDEX idx_settlement_set_${sqlSeq} ON medical_gbdp.t_settlement_set_${sqlSeq} (visitid,orgid);
+]]></sql>
+<!-- 科室就诊费用排名前10就诊明细 医保 master部分 -->
+<sql id="querySql_YB_master"><![CDATA[
+-- 定义主表取值 + 结算表费用 取值联合表
+drop TABLE if EXISTS medical_gbdp.t_master_settlement_set_${sqlSeq};
+create table medical_gbdp.t_master_settlement_set_${sqlSeq} as
+(
+  select t.visitid,t.orgid,t.orgname,doctorname,deptname, substr(cast(visitdate as CHAR),1,4) as yyear,
+    concat(trim(clientname),substr(cast(birthday as CHAR),1,10)) as name,
+    visittype,insurancetypename,sex,
+    COALESCE(floor((timestampdiff(month,substr(visitdate,1,10),substr(birthday,1,10)))/12),yearage) as yearage,
+    visitdate,leavedate,
+    s.totalfee,s.fundpay
+  from src_yb_master_info t inner join medical_gbdp.t_settlement_set_${sqlSeq} s
+  on t.visitid = s.visitid and t.orgid = s.orgid
+  where 1=1
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.visitid in (${visitid_in})
+  and concat(trim(t.clientname),substr(cast(t.birthday as CHAR),1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and not t.visittype rlike '住院'  --${MM}
+  and t.visittype rlike '住院'  --${ZY}
+  and date_format(visitdate, 'YYYY')>='${dateStart}'
+  and visitdate<='${dateEnd}'
+) ;
+-- 加索引
+CREATE INDEX idx_master_settlement_set_${sqlSeq} ON medical_gbdp.t_master_settlement_set_${sqlSeq} (visitid,orgid);
+
+
+-- 定义医保diag表
+drop TABLE if EXISTS medical_gbdp.t_yb_diag_set_${sqlSeq};
+create table medical_gbdp.t_yb_diag_set_${sqlSeq} as
+(
+   SELECT orgid,orgname,  visitid ,
+    REPLACE(group_concat(distinct diseasename),',','_') as dis
+   from src_yb_diag t where 1=1
+   --${NOORGID} and t.orgname rlike '${orgname}'
+   and t.orgid in (${orgid})
+   and t.visitid in (${visitid_in})
+   GROUP BY orgid,orgname,visitid
+) ;
+-- 加索引
+CREATE INDEX idx_yb_diag_set_${sqlSeq} ON medical_gbdp.t_yb_diag_set_${sqlSeq} (visitid,orgid);
+
+
+-- 定义主表取值 + 结算表费用 取值联合表
+drop TABLE if EXISTS medical_gbdp.t_master_settlement_diag_set_${sqlSeq};
+create table medical_gbdp.t_master_settlement_diag_set_${sqlSeq} as
+(
+  select t.* ,t1.dis from medical_gbdp.t_master_settlement_set_${sqlSeq} t left join medical_gbdp.t_yb_diag_set_${sqlSeq} t1
+  on t.visitid = t1.visitid and t.orgid = t1.orgid
+);
+-- 加索引
+CREATE INDEX idx_master_settlement_diag_set_${sqlSeq} ON medical_gbdp.t_master_settlement_diag_set_${sqlSeq} (visitid,orgid);
+]]></sql>
+
+<!-- 科室就诊费用排名前10就诊明细 医保 最终部分 -->
+<sql id="querySql_YB_final"><![CDATA[
+--${TOP10} -- 定义每个医院、每个科室、每年、在指定结算时间内的前10条
+--${TOP10}  drop TABLE if EXISTS medical_gbdp.t_top10visitid_set_${sqlSeq};
+--${TOP10}  create table medical_gbdp.t_top10visitid_set_${sqlSeq} as
+--${TOP10}  (
+--${TOP10}  select * from (
+--${TOP10}    select t.*,row_number() over(partition by orgname,deptname,yyear  order by totalfee desc) as rank1
+--${TOP10}    from medical_gbdp.t_master_settlement_diag_set_${sqlSeq} t
+--${TOP10}  ) t2 where t2.rank1<11
+--${TOP10} );
+
+--收费明细表按项目汇总
+drop TABLE if EXISTS medical_gbdp.t_charge_detail_set_${sqlSeq};
+create table medical_gbdp.t_charge_detail_set_${sqlSeq} as
+ (
+  select visitid,orgid, orgname,c.his_itemname, c.itemname,c.itemcode,
+  c.chargeattri, c.itemprice,sum(c.amount) as amount , sum( c.fee) as fee
+  from src_yb_charge_detail c where 1=1
+  --${NOORGID} and c.orgname rlike '${orgname}'
+  and c.orgid in (${orgid})
+  -- and c.visitid rlike '${visitid}'
+  and c.visitid in (${visitid_in})
+  group by visitid, orgid,orgname,c.his_itemname, c.itemname,c.itemcode,  c.chargeattri, c.itemprice
+);
+-- 加索引
+CREATE INDEX idx_charge_detail_set_${sqlSeq} ON medical_gbdp.t_charge_detail_set_${sqlSeq}  (visitid,orgid);
+
+-- 关联明细获得最终就诊记录合并的最终结果
+drop TABLE if EXISTS medical_gbdp.t_master_detail_diag_set_${sqlSeq};
+create table medical_gbdp.t_master_detail_diag_set_${sqlSeq} as
+(
+  select t.orgid, t.orgname,yyear,t.visitid,totalfee,fundpay,t.doctorname,deptname,visittype,insurancetypename,
+  name,sex,substr(cast(visitdate as CHAR),1,10) as visitdate,substr(cast(leavedate as CHAR),1,10) as leavedate,
+  yearage,dis,c.his_itemname, c.itemname,c.itemcode,
+  c.chargeattri, c.itemprice,c.amount, c.fee
+  -- ,substr(cast(c.chargedate as CHAR),1,10) as chargedate 注释收费日期分组
+  --${TOP10} ,rank1
+  from
+  --${TOP10} medical_gbdp.t_top10visitid_set_${sqlSeq} t
+  --${NORMAL} medical_gbdp.t_master_settlement_diag_set_${sqlSeq} t
+  left join  medical_gbdp.t_charge_detail_set_${sqlSeq} c
+  on t.visitid =c.visitid and t.orgid =c.orgid
+);
+-- 加索引
+CREATE INDEX idx_master_detail_diag_set_${sqlSeq} ON medical_gbdp.t_master_detail_diag_set_${sqlSeq} (visitid,orgid);
+
+-- 读取标签表
+drop TABLE if EXISTS medical_gbdp.t_tagname_set_${sqlSeq};
+create table medical_gbdp.t_tagname_set_${sqlSeq} as
+(
+  SELECT
+  group_concat(distinct tag_name) as tag_name ,
+  orgname_src,visitid_src
+  from medical.dwb_visitid_tag where 1=1
+  and etl_source='${etl_source}'
+  and project='${project}'
+  GROUP BY orgname_src,visitid_src
+)
+;
+
+-- 查询最终结果
+drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as (
+select t.* ,t1.tag_name from medical_gbdp.t_master_detail_diag_set_${sqlSeq} t left join medical_gbdp.t_tagname_set_${sqlSeq} t1
+  on t.orgname=t1.orgname_src and t.visitid=t1.visitid_src
+  where 1=1 and t1.tag_name='${tagName}'
+  limit ${limitCount}
+
+  );
+
+ select * from medical_gbdp.t_dc_result_${sqlSeq} t
+ order by yyear,t.orgname,deptname
+ --${TOP10} ,rank1
+
+]]></sql>
+
+
+<!-- 科室就诊费用排名前10就诊明细 HIS 门诊 -->
+<sql id="querySql_HIS_MZ"><![CDATA[
+-- 定义门诊结算表
+drop TABLE if EXISTS medical_gbdp.t_settlement_set_mz_${sqlSeq};
+create table medical_gbdp.t_settlement_set_mz_${sqlSeq} as
+(
+  select visitid as visitid,orgid,orgname, sum(totalfee) as totalfee,sum(fundpay) as fundpay
+  from src_his_mz_settlement t where 1=1
+  -- 不包含自费就诊记录 ${fundpayonly}
+  and fundpay>0 --${fundpayonly}
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.visitid in (${visitid_in})
+  group by visitid,orgid,orgname
+) ;
+-- 加索引
+CREATE INDEX idx_settlement_set_mz_${sqlSeq} ON medical_gbdp.t_settlement_set_mz_${sqlSeq} (visitid,orgid);
+
+
+-- 定义门诊 diag表
+drop TABLE if EXISTS medical_gbdp.t_diag_mz_set_${sqlSeq};
+create table medical_gbdp.t_diag_mz_set_${sqlSeq} as
+(
+  SELECT orgid,orgname,visitid as visitid ,
+  REPLACE(group_concat(distinct diseasename),',','_') as dis
+  from src_his_mz_diag t
+  where 1=1
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.visitid in (${visitid_in})
+  GROUP BY orgid,orgname,visitid
+) ;
+-- 加索引
+CREATE INDEX idx_diag_mz_set_${sqlSeq} ON medical_gbdp.t_diag_mz_set_${sqlSeq} (visitid,orgid);
+
+
+
+-- 定义主表取值 + 结算表费用 取值联合表
+drop TABLE if EXISTS medical_gbdp.t_master_settlement_set_mz_${sqlSeq};
+create table medical_gbdp.t_master_settlement_set_mz_${sqlSeq} as
+(
+  select t.visitid  as visitid,t.orgid,t.orgname,doctorname,deptname as deptname,
+    substr(cast(visitdate as CHAR),1,4) as yyear,
+    (case when visittype is null or visittype='' then '门诊' else visittype end ) as visittype,insurancetypename,
+    concat(trim(clientname),substr(cast(birthday as CHAR),1,10)) as name,
+    sex,
+    COALESCE(floor((timestampdiff(month,substr(visitdate,1,10),substr(birthday,1,10)))/12),yearage) as yearage,
+    visitdate, visitdate as leavedate,
+    dis, t1.totalfee,fundpay
+ from src_his_mz_master_info t
+ inner join  medical_gbdp.t_settlement_set_mz_${sqlSeq} t1
+ on t.visitid=t1.visitid and t.orgid=t1.orgid
+ left join medical_gbdp.t_diag_mz_set_${sqlSeq} t2
+ on t.visitid=t2.visitid
+  and t.orgid=t2.orgid and t1.visitid=t2.visitid and t1.orgid=t2.orgid
+  where 1=1
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.visitid in (${visitid_in})
+  and concat(trim(t.clientname),substr(cast(t.birthday as CHAR),1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and date_format(visitdate, 'YYYY')>='${dateStart}'
+  and visitdate<='${dateEnd}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+) ;
+-- 加索引
+CREATE INDEX idx_master_settlement_set_mz_${sqlSeq} ON medical_gbdp.t_master_settlement_set_mz_${sqlSeq} (visitid,orgid);
+
+
+
+--${TOP10}-- 定义每个医院、每个科室、每年、在指定结算时间内的前10条
+--${TOP10} drop TABLE if EXISTS medical_gbdp.t_top10visitid_set_mz_${sqlSeq};
+--${TOP10} create table medical_gbdp.t_top10visitid_set_mz_${sqlSeq} as
+--${TOP10} (
+--${TOP10}  select * from (
+--${TOP10}    select t.*,row_number() over(partition by orgname,deptname,yyear  order by totalfee desc) as rank1
+--${TOP10}    from  medical_gbdp.t_master_settlement_set_mz_${sqlSeq} t
+--${TOP10}  ) t2 where t2.rank1<11
+--${TOP10})  ;
+--${TOP10}-- 加索引
+--${TOP10} CREATE INDEX idx_top10visitid_set_mz_${sqlSeq} ON medical_gbdp.t_top10visitid_set_mz_${sqlSeq}   (visitid,orgid);
+
+
+--收费明细表按项目汇总
+drop TABLE if EXISTS medical_gbdp.t_charge_detail_set_mz_${sqlSeq};
+create table medical_gbdp.t_charge_detail_set_mz_${sqlSeq} as
+(
+  select visitid as visitid,orgid, orgname,c.his_itemname, c.itemname,c.itemcode,
+  c.chargeattri, c.itemprice,sum(c.amount) as amount , sum( c.fee) as fee
+  from src_his_mz_charge_detail c where 1=1
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and c.orgid in (${orgid})
+  -- and c.visitid rlike '${visitid}'
+  and c.visitid in (${visitid_in})
+  group by visitid, orgid,orgname,c.his_itemname, c.itemname,c.itemcode,  c.chargeattri, c.itemprice
+) ;
+-- 加索引
+CREATE INDEX idx_charge_detail_set_mz_${sqlSeq} ON medical_gbdp.t_charge_detail_set_mz_${sqlSeq} (visitid,orgid);
+
+
+-- 关联明细获得最终就诊记录合并的最终结果
+drop TABLE if EXISTS medical_gbdp.t_master_detail_diag_set_${sqlSeq};
+create table medical_gbdp.t_master_detail_diag_set_${sqlSeq} as
+(
+  select t.orgid, t.orgname,deptname,yyear,t.visitid,totalfee,fundpay,t.doctorname,visittype,insurancetypename,
+  name,sex,substr(cast(visitdate as CHAR),1,10) as visitdate,substr(cast(leavedate as CHAR),1,10) as leavedate,
+  yearage,dis,c.his_itemname, c.itemname,c.itemcode,
+  c.chargeattri, c.itemprice,c.amount, c.fee
+  --${TOP10} ,rank1
+  from
+  --${TOP10} medical_gbdp.t_top10visitid_set_mz_${sqlSeq} t
+  --${NORMAL} medical_gbdp.t_master_settlement_set_mz_${sqlSeq} t
+  left join medical_gbdp.t_charge_detail_set_mz_${sqlSeq}  c on t.visitid =c.visitid and t.orgid =c.orgid
+) ;
+-- 加索引
+CREATE INDEX idx_master_detail_diag_set_${sqlSeq} ON medical_gbdp.t_master_detail_diag_set_${sqlSeq} (visitid,orgid);
+
+
+
+-- 读取标签表
+drop TABLE if EXISTS medical_gbdp.t_tagname_set_${sqlSeq};
+create table medical_gbdp.t_tagname_set_${sqlSeq} as
+(
+  SELECT
+  group_concat(distinct tag_name) as tag_name,
+  orgname_src,visitid_src
+  from medical.dwb_visitid_tag where 1=1
+  and etl_source='${etl_source}'
+  and project='${project}'
+  GROUP BY orgname_src,visitid_src
+)
+;
+
+
+-- 查询最终结果
+drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as
+(
+select t.* ,t1.tag_name from medical_gbdp.t_master_detail_diag_set_${sqlSeq} t left join medical_gbdp.t_tagname_set_${sqlSeq} t1
+  on t.orgname=t1.orgname_src and t.visitid=t1.visitid_src
+  where 1=1 and t1.tag_name='${tagName}'
+   limit ${limitCount}
+  );
+
+  select * from medical_gbdp.t_dc_result_${sqlSeq} t  order by yyear,t.orgname,deptname
+  --${TOP10} ,rank1
+
+]]></sql>
+
+<!-- 科室就诊费用排名前10就诊明细 HIS 住院 -->
+<sql id="querySql_HIS_ZY"><![CDATA[
+-- 定义住院结算表
+drop TABLE if EXISTS medical_gbdp.t_settlement_set_zy_${sqlSeq};
+create table medical_gbdp.t_settlement_set_zy_${sqlSeq} as
+(
+  select visitid as visitid,orgid,orgname, sum(totalfee) as totalfee,sum(fundpay) as fundpay
+  from src_his_zy_settlement t where 1=1
+  -- 不包含自费就诊记录 ${fundpayonly}
+  and fundpay>0 --${fundpayonly}
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.visitid in (${visitid_in})
+  group by visitid,orgid,orgname
+) ;datamining_org_sum
+-- 加索引
+CREATE INDEX idx_settlement_set_zy_${sqlSeq} ON medical_gbdp.t_settlement_set_zy_${sqlSeq}  (visitid,orgid);
+
+
+-- 定义住院 diag表
+drop TABLE if EXISTS medical_gbdp.t_diag_zy_set_${sqlSeq};
+create table medical_gbdp.t_diag_zy_set_${sqlSeq} as
+(
+  SELECT orgid,orgname,visitid as visitid ,
+  REPLACE(group_concat(distinct diseasename),',','_') as dis
+  from src_his_zy_diag t
+  where 1=1
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.visitid in (${visitid_in})
+  GROUP BY orgid,orgname,visitid
+) ;
+-- 加分区加索引
+CREATE INDEX idx_diag_zy_set_${sqlSeq} ON medical_gbdp.t_diag_zy_set_${sqlSeq}  (visitid,orgid);
+
+
+-- 定义主表取值 + 结算表费用 取值联合表
+drop TABLE if EXISTS medical_gbdp.t_master_settlement_set_zy_${sqlSeq};
+create table medical_gbdp.t_master_settlement_set_zy_${sqlSeq} as
+(
+  select t.visitid  as visitid,t.orgid,t.orgname,doctorname,admit_deptname as deptname,
+    substr(cast(admitdate as CHAR),1,4) as yyear,
+    (case when visittype is null or visittype='' then '住院' else visittype end ) as visittype,insurancetypename,
+     concat(trim(clientname),substr(cast(birthday as CHAR),1,10)) as name,
+     sex,
+     COALESCE(floor(EXTRACT(YEAR from age(admitdate, birthday))*12+EXTRACT(MONTH from age(admitdate,birthday))+1)/12,yearage) as yearage,
+     admitdate as visitdate,leavedate,
+     dis, t1.totalfee,fundpay
+  from src_his_zy_master_info t
+  inner join  medical_gbdp.t_settlement_set_zy_${sqlSeq} t1
+  on t.visitid=t1.visitid and t.orgid=t1.orgid
+  left join medical_gbdp.t_diag_zy_set_${sqlSeq} t2
+  on  t.visitid=t2.visitid and t.orgid=t2.orgid
+  and t1.visitid=t2.visitid and t1.orgid=t2.orgid
+  where 1=1
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.visitid in (${visitid_in})
+  and concat(trim(t.clientname),substr(cast(t.birthday as CHAR),1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and date_format(admitdate, 'YYYY')>='${dateStart}'
+  and admitdate<='${dateEnd}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+) ;
+-- 加分区加索引
+CREATE INDEX idx_master_settlement_set_zy_${sqlSeq} ON medical_gbdp.t_master_settlement_set_zy_${sqlSeq} (visitid,orgid);
+
+
+
+--${TOP10}-- 定义每个医院、每个科室、每年、在指定结算时间内的前10条
+--${TOP10} drop TABLE if EXISTS medical_gbdp.t_top10visitid_set_zy_${sqlSeq};
+--${TOP10} create table medical_gbdp.t_top10visitid_set_zy_${sqlSeq} as
+--${TOP10} (
+--${TOP10}  select * from (
+--${TOP10}    select t.*,row_number() over(partition by orgname,deptname,yyear  order by totalfee desc) as rank1
+--${TOP10}    from medical_gbdp.t_master_settlement_set_zy_${sqlSeq} t
+--${TOP10}  ) t2 where t2.rank1<11
+--${TOP10}  and date_format(visitdate, 'YYYY')>='${dateStart}'
+--${TOP10}  and visitdate<='${dateEnd}'
+--${TOP10})  ;
+--${TOP10} -- 加索引
+--${TOP10} CREATE INDEX idx_top10visitid_set_zy_${sqlSeq} ON medical_gbdp.t_top10visitid_set_zy_${sqlSeq} (visitid,orgid);
+
+
+-- 收费明细表按项目汇总
+drop TABLE if EXISTS medical_gbdp.t_charge_detail_set_zy_${sqlSeq};
+create table medical_gbdp.t_charge_detail_set_zy_${sqlSeq} as
+(
+  select visitid as visitid, orgid,orgname,c.his_itemname, c.itemname,c.itemcode,
+  c.chargeattri, c.itemprice,sum(c.amount) as amount , sum( c.fee) as fee
+  from src_his_zy_charge_detail c where 1=1
+  --${NOORGID} and c.orgname rlike '${orgname}'
+  and c.orgid in (${orgid})
+  -- and c.visitid rlike '${visitid}'
+  and c.visitid in (${visitid_in})
+  group by visitid, orgid,orgname,c.his_itemname, c.itemname,c.itemcode,  c.chargeattri, c.itemprice
+) ;
+-- 加索引
+CREATE INDEX idx_charge_detail_set_zy_${sqlSeq} ON medical_gbdp.t_charge_detail_set_zy_${sqlSeq} (visitid,orgid);
+
+
+-- 关联明细获得最终就诊记录合并的最终结果
+drop TABLE if EXISTS medical_gbdp.t_master_detail_diag_set_${sqlSeq};
+create table medical_gbdp.t_master_detail_diag_set_${sqlSeq} as
+(
+  select t.orgid,t.orgname,deptname,yyear,t.visitid,totalfee,fundpay,t.doctorname,visittype,insurancetypename,
+  name,sex,substr(cast(visitdate as CHAR),1,10) as visitdate,substr(cast(leavedate as CHAR),1,10) as leavedate,
+  yearage,dis,c.his_itemname, c.itemname,c.itemcode,
+  c.chargeattri, c.itemprice,c.amount, c.fee
+  --${TOP10} ,rank1
+  from
+  --${TOP10} medical_gbdp.t_top10visitid_set_zy_${sqlSeq} t
+  --${NORMAL} medical_gbdp.t_master_settlement_set_zy_${sqlSeq} t
+  left join medical_gbdp.t_charge_detail_set_zy_${sqlSeq}  c
+  on t.visitid =c.visitid and t.orgid =c.orgid
+) ;
+-- 加索引
+CREATE INDEX idx_master_detail_diag_set_${sqlSeq} ON medical_gbdp.t_master_detail_diag_set_${sqlSeq} (visitid,orgid);
+
+-- 读取标签表
+drop TABLE if EXISTS medical_gbdp.t_tagname_set_${sqlSeq};
+create table medical_gbdp.t_tagname_set_${sqlSeq} as
+(
+  SELECT
+  group_concat(distinct tag_name) as tag_name,
+  orgname_src,visitid_src
+  from medical.dwb_visitid_tag where 1=1
+  and etl_source='${etl_source}'
+  and project='${project}'
+  GROUP BY orgname_src,visitid_src
+);
+-- 查询最终结果
+
+drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as
+(
+select t.* ,t1.tag_name from medical_gbdp.t_master_detail_diag_set_${sqlSeq} t left join medical_gbdp.t_tagname_set_${sqlSeq} t1
+  on t.orgname=t1.orgname_src and t.visitid=t1.visitid_src
+  where 1=1 and t1.tag_name='${tagName}'
+  limit ${limitCount}
+  );
+
+   select * from medical_gbdp.t_dc_result_${sqlSeq} t  order by yyear,t.orgname,deptname
+  --${TOP10} ,rank1
+
+]]></sql>
+</mapper>

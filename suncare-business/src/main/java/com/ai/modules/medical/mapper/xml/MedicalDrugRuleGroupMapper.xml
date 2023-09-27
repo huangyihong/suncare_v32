@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.medical.mapper.MedicalDrugRuleGroupMapper">
+    <select id="getGroupDictMapByKinds" resultType="com.ai.modules.medical.vo.MedicalDrugRuleGroupDict">
+        select distinct GROUP_TYPE as DICT_TYPE,GROUP_NAME as REMARK,kind
+        from MEDICAL_DRUG_RULE_GROUP where kind in
+        <foreach collection="array" item="kind" index="index" open="(" close=")" separator=",">
+            #{kind}
+        </foreach>
+        order by kind asc
+    </select>
+
+  <!--  <select id="listByChild" parameterType="java.util.HashMap"
+            resultType="com.ai.modules.medical.entity.MedicalDrugRuleGroup">
+        select t.* from MEDICAL_DRUG_RULE_GROUP t where
+            EXISTS (SELECT 1 FROM MEDICAL_DRUG_RULE_GROUP_DEL d WHERE d.GROUP_ID=t.id
+            <if test="code != null and code != ''">
+                and d.CODE like '%${code}%'
+            </if>
+            <if test="value != null and value != ''">
+                and d.VALUE like '%${value}%'
+            </if>
+            )
+        <if test="groupType != null and groupType != ''">
+            and t.GROUP_TYPE like '%${groupType}%'
+        </if>
+        <if test="groupName != null and groupName != ''">
+            and t.GROUP_NAME like '%${groupName}%'
+        </if>
+        order by t.IS_ORDER asc,t.GROUP_TYPE asc
+    </select>-->
+	
+    <select id="findDrugRuleGroupDtlByKind" parameterType="String" resultType="com.ai.modules.medical.entity.vo.DrugRuleGroupDtlVO">
+        select a.group_type group_id,
+       a.group_name,
+       a.kind,
+       b.id,
+       b.code       item_code,
+       b.value      item_name,
+       b.is_order   seq
+  from medical_drug_rule_group a
+  join medical_drug_rule_group_del b
+    on a.group_type = b.group_id
+  where kind=#{kind} order by group_id, b.is_order
+    </select>
+</mapper>
+

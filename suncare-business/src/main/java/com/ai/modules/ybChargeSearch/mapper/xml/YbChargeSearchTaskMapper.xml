@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.ybChargeSearch.mapper.YbChargeSearchTaskMapper">
+
+
+    <select id="getUseCountPage" resultType="java.util.Map">
+        SELECT
+        max(dataSource) as dataSource,
+        max(createTime) as createTime,
+        weekNum,
+        max(weekStart) as weekStart,
+        max(weekEnd) as weekEnd,
+        max(dataNum) as dataNum,
+        ${fieldSql}
+        FROM(
+        SELECT
+        data_source AS dataSource,
+        max(create_time) AS createTime,
+        week_num AS weekNum,
+        max(week_start) AS weekStart,
+        max(week_end) AS weekEnd,
+        count(1) as dataNum
+        FROM
+        (SELECT t1.data_source, t1.create_time,t2.week_num,t2.week_start,t2.week_end FROM yb_charge_search_task t1
+        left join yb_year_week t2
+        ON DATE_FORMAT(t1.create_time,'%Y%m%d') between DATE_FORMAT(t2.week_start,'%Y%m%d') and
+        DATE_FORMAT(t2.week_end,'%Y%m%d')
+        <where>
+            <if test="query.weekStart != null and query.weekStart != '' and query.weekEnd != null and query.weekEnd != ''">
+                AND DATE_FORMAT(t1.create_time,'%Y%m%d') between DATE_FORMAT(#{query.weekStart},'%Y%m%d') and
+                DATE_FORMAT(#{query.weekEnd},'%Y%m%d')
+            </if>
+        </where>
+        ) as t
+        GROUP BY dataSource,weekNum
+        order by weekStart
+        ) as tb
+        GROUP BY weekNum
+    </select>
+
+    <select id="getUseCountList" resultType="java.util.Map">
+        SELECT
+        max(dataSource) as dataSource,
+        max(createTime) as createTime,
+        weekNum,
+        max(weekStart) as weekStart,
+        max(weekEnd) as weekEnd,
+        max(dataNum) as dataNum,
+        ${fieldSql}
+        FROM(
+        SELECT
+        data_source AS dataSource,
+        max(create_time) AS createTime,
+        week_num AS weekNum,
+        max(week_start) AS weekStart,
+        max(week_end) AS weekEnd,
+        count(1) as dataNum
+        FROM
+        (SELECT t1.data_source, t1.create_time,t2.week_num,t2.week_start,t2.week_end FROM yb_charge_search_task t1
+        left join yb_year_week t2
+        ON DATE_FORMAT(t1.create_time,'%Y%m%d') between DATE_FORMAT(t2.week_start,'%Y%m%d') and
+        DATE_FORMAT(t2.week_end,'%Y%m%d')
+        <where>
+            <if test="query.weekStart != null and query.weekStart != '' and query.weekEnd != null and query.weekEnd != ''">
+                AND DATE_FORMAT(t1.create_time,'%Y%m%d') between DATE_FORMAT(#{query.weekStart},'%Y%m%d') and
+                DATE_FORMAT(#{query.weekEnd},'%Y%m%d')
+            </if>
+        </where>
+        ) as t
+        GROUP BY dataSource,weekNum
+        order by weekStart
+        ) as tb
+        GROUP BY weekNum
+    </select>
+
+    <select id="getSearchTaskFunCount" resultType="java.util.Map">
+        select
+        big_title as bigTitle,
+        small_title as smallTitle,
+        count(1) as num
+        FROM
+        (
+        select
+        task_type,
+        case when
+        (select t1.value from medical_dict t,medical_dict_item t1 where t.GROUP_ID=t1.GROUP_ID and t.GROUP_CODE='SEARCH_TASK_TYPE' and t1.code=task_type) like '数据挖掘分析%'
+        then '数据挖掘分析'
+        else  (select t1.value from medical_dict t,medical_dict_item t1 where t.GROUP_ID=t1.GROUP_ID and t.GROUP_CODE='SEARCH_TASK_TYPE' and t1.code=task_type)
+        end big_title,
+        CASE
+        WHEN
+        task_type='riskStatistics' OR task_type='diagRiskStatistics' OR task_type='lowStatistics'
+        THEN tag_name
+        END small_title
+        from yb_charge_search_task WHERE task_type != 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        (
+        ((itemname is not null and itemname !='') OR (his_item_name is not null and his_item_name != ''))
+        and
+        ((itemname1 is null OR itemname1 = '') and (his_item_name1 is null OR his_item_name1=''))
+        )
+        THEN '单项目导出'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        item1_wgtype = 'haveB'
+        THEN '重复收费（B项目存在违规）'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        (
+        (itemname is not null OR his_item_name is not null)
+        and
+        item1_wgtype = 'notHaveB'
+        )
+        THEN 'A项目存在，B项目不存在违规'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        qty_type = 'charge_qty'
+        THEN '一天超量'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        qty_type = 'vistid_qty'
+        THEN '一次就诊超量'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        qty_type = 'inhos_qty'
+        THEN '一次就诊超过住院天数'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        qty_type = 'inhos24_qty'
+        THEN '一次就诊超过住院天数*24'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        is_same_day = '1'
+        THEN '输出同一天手术项目'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        ) t
+        <where>
+            t.big_title is not NULL and t.big_title !=''
+            and ((small_title !='' and big_title='明细导出') or big_title !='明细导出')
+            <if test="query.bigTitle != null and query.bigTitle != '' ">
+                AND t.big_title like concat('%',#{query.bigTitle},'%')
+
+            </if>
+            <if test="query.smallTitle != null and query.smallTitle != '' ">
+                AND t.small_title like concat('%',#{query.smallTitle},'%')
+            </if>
+        </where>
+        GROUP BY t.big_title,t.small_title
+        ORDER BY t.big_title
+    </select>
+    <select id="getSearchTaskFunCountList" resultType="java.util.Map">
+        select
+        big_title as bigTitle,
+        small_title as smallTitle,
+        count(1) as num
+        FROM
+        (
+        select
+        task_type,
+        case when
+        (select t1.value from medical_dict t,medical_dict_item t1 where t.GROUP_ID=t1.GROUP_ID and t.GROUP_CODE='SEARCH_TASK_TYPE' and t1.code=task_type) like '数据挖掘分析%'
+        then '数据挖掘分析'
+        else  (select t1.value from medical_dict t,medical_dict_item t1 where t.GROUP_ID=t1.GROUP_ID and t.GROUP_CODE='SEARCH_TASK_TYPE' and t1.code=task_type)
+        end big_title,
+        CASE
+        WHEN
+        task_type='riskStatistics' OR task_type='diagRiskStatistics' OR task_type='lowStatistics'
+        THEN tag_name
+        END small_title
+        from yb_charge_search_task WHERE task_type != 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        (
+        ((itemname is not null and itemname !='') OR (his_item_name is not null and his_item_name != ''))
+        and
+        ((itemname1 is null OR itemname1 = '') and (his_item_name1 is null OR his_item_name1=''))
+        )
+        THEN '单项目导出'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        item1_wgtype = 'haveB'
+        THEN '重复收费（B项目存在违规）'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        (
+        (itemname is not null OR his_item_name is not null)
+        and
+        item1_wgtype = 'notHaveB'
+        )
+        THEN 'A项目存在，B项目不存在违规'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        qty_type = 'charge_qty'
+        THEN '一天超量'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        qty_type = 'vistid_qty'
+        THEN '一次就诊超量'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        qty_type = 'inhos_qty'
+        THEN '一次就诊超过住院天数'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        qty_type = 'inhos24_qty'
+        THEN '一次就诊超过住院天数*24'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        UNION ALL
+
+        select
+        task_type,
+        CASE task_type
+        WHEN 'search' THEN '明细导出'
+        END big_title,
+        CASE
+        WHEN
+        is_same_day = '1'
+        THEN '输出同一天手术项目'
+        END small_title
+        from yb_charge_search_task WHERE task_type = 'search'
+
+        ) t
+        <where>
+            t.big_title is not NULL and t.big_title !=''
+            and ((small_title !='' and big_title='明细导出') or big_title !='明细导出')
+            <if test="query.bigTitle != null and query.bigTitle != '' ">
+                AND t.big_title like concat('%',#{query.bigTitle},'%')
+
+            </if>
+            <if test="query.smallTitle != null and query.smallTitle != '' ">
+                AND t.small_title like concat('%',#{query.smallTitle},'%')
+            </if>
+        </where>
+        GROUP BY t.big_title,t.small_title
+        ORDER BY t.big_title
+    </select>
+
+
+</mapper>

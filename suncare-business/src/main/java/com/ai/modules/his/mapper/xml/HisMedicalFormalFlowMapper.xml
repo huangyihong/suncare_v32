@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.his.mapper.HisMedicalFormalFlowMapper">
+    <select id="recursionMedicalFormalFlowByCaseid"  resultType="com.ai.modules.engine.model.EngineNode">
+        SELECT * FROM (
+                          SELECT NODE_ID, NODE_CODE, NODE_TYPE, NODE_NAME, PREV_NODE_CODE, PREV_NODE_CONDITION, CASE_ID, ORDER_NO, PARAM_CODE
+                          from his_medical_formal_flow
+                          WHERE CASE_ID = #{caseId} and BATCH_ID = #{batchId}) t_alias
+        start with node_type='end' connect by prior prev_node_code=node_code
+    </select>
+
+    <select id="queryHisMedicalFormalFlow"  resultType="com.ai.modules.engine.model.EngineNode">
+         SELECT NODE_ID, NODE_CODE, NODE_TYPE, NODE_NAME, PREV_NODE_CODE, PREV_NODE_CONDITION, CASE_ID, ORDER_NO, PARAM_CODE
+         	from his_medical_formal_flow
+         	WHERE CASE_ID = #{caseId} and BATCH_ID = #{batchId}
+    </select>
+</mapper>

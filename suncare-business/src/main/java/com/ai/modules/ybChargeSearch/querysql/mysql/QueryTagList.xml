@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+
+    <!-- 根据项目地查询datamining_chargeitem_risk_data表获取标签ID和名称 -->
+    <sql id="datamining_chargeitem_risk_data"><![CDATA[
+      SELECT  tag_index ,concat(tag_name ,'(' ,cast(count(1) as CHAR) ,')' )as tagname,
+      tag_name as name,count(1) as count,
+      cast('riskStatistics' as CHAR) as tag_type
+      from medical.datamining_chargeitem_risk_data t
+      where t.project='${project}'
+      and t.etl_source='${etl_source}'
+      and t.orgname rlike '${orgname}'
+      group by tag_index ,tag_name
+      order by count desc
+    ]]></sql>
+
+    <!-- 根据项目地查询datamining_diag_risk_data表获取标签ID和名称 -->
+    <sql id="datamining_diag_risk_data"><![CDATA[
+      SELECT tag_index ,concat(tag_name ,'(' ,cast(count(1) as CHAR) ,')' )as tagname,
+      tag_name as name,count(1) as count,
+      cast('diagRiskStatistics' as CHAR) as tag_type
+      from medical.datamining_diag_risk_data t
+      where t.project='${project}'
+      and t.etl_source='${etl_source}'
+      and t.orgname rlike '${orgname}'
+      group by tag_index ,tag_name
+      order by count desc
+    ]]></sql>
+
+
+    <!-- 根据项目地查询dwb_visitid_tag表获取标签ID和名称 -->
+    <sql id="dwb_visitid_tag"><![CDATA[
+      SELECT tag_id as tag_index ,concat(tag_name ,'(' ,cast(count(1) as CHAR) ,')' )as tagname,
+      tag_name as name,count(1) as count,
+      'lowStatistics' as tag_type
+      from medical.dwb_visitid_tag t
+      where t.project='${project}'
+      and t.etl_source='${etl_source}'
+      and t.orgname rlike '${orgname}'
+      group by tag_index ,tag_name
+      order by count desc
+
+    ]]></sql>
+
+
+</mapper>

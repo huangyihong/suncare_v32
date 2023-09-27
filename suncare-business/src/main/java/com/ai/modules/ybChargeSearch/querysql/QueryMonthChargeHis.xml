@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+
+<!-- 明细部分查询, 不包含项目名称的查询 -->
+<sql id="detail_no_itemname"><![CDATA[
+-- 明细查询，项目名称查询条件为空，不加收费日期分组条件
+-- 定义住院明细
+with zy_detail_set as(
+  select orgid,orgname,t.his_zy_id  as visitid,from_timestamp(chargedate,'yyyy-MM') as charge,his_itemname,itemname,itemcode,
+    sum(amount) as sl,sum(fee) fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,'' as biaozhi
+  from src_his_zy_charge_detail t where 1=1
+  and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.his_zy_id rlike '${visitid}'
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_zy_settlement t1 where t.his_zy_id=t1.his_zy_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  group by orgid,orgname,t.his_zy_id, charge,his_itemname,itemname,itemcode
+ --${ODS} ,itemname_src,his_itemname_src
+
+)
+-- 定义门诊查询数据集
+, mz_detail_set as(
+  select orgid,orgname,t.his_mz_id  as visitid,from_timestamp(chargedate,'yyyy-MM') as charge,his_itemname,itemname,itemcode,
+   sum(amount) as sl,sum(fee) fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,'' as biaozhi
+  from src_his_mz_charge_detail t where 1=1
+  and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.his_mz_id rlike '${visitid}'
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_mz_settlement t1 where t.his_mz_id=t1.his_mz_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  group by orgid,orgname,t.his_mz_id, charge,his_itemname,itemname,itemcode
+ --${ODS} ,itemname_src,his_itemname_src
+
+)
+]]></sql>
+
+
+<!-- 明细部分查询, 包含项目名称的查询，按收费日期chargedate按天汇总输出 -->
+<sql id="detail_with_one_itemname"><![CDATA[
+-- 明细查询，只有1个项目名称查询条件，分组条件中包含收费日期
+-- 定义住院查询数据集
+with zy_detail_set as(
+  select orgid,orgname,t.his_zy_id  as visitid,from_timestamp(chargedate,'yyyy-MM') as charge,his_itemname,
+  itemname,itemcode,sum(amount) as sl,sum(fee) fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,'' as biaozhi
+  from src_his_zy_charge_detail t where 1=1
+  --${SRC} and itemname rlike '${itemname}'
+  --${SRC} and his_itemname rlike '${his_itemname}'
+  --${ODS} and itemname_src rlike '${itemname}'
+  --${ODS} and his_itemname_src rlike '${his_itemname}'
+  and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.his_zy_id rlike '${visitid}'
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_zy_settlement t1 where t.his_zy_id=t1.his_zy_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  group by orgid,orgname,t.his_zy_id,charge,his_itemname,itemname,itemcode
+  --${ODS} ,itemname_src,his_itemname_src
+)
+-- 定义门诊查询明细数据集
+, mz_detail_set as(
+  select orgid,orgname,t.his_mz_id  as visitid,from_timestamp(chargedate,'yyyy-MM') as charge,his_itemname,itemname,itemcode,
+  sum(amount) as sl,sum(fee) fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,'' as biaozhi
+  from src_his_mz_charge_detail t where 1=1
+  --${SRC} and itemname rlike '${itemname}'
+  --${SRC} and his_itemname rlike '${his_itemname}'
+  --${ODS} and itemname_src rlike '${itemname}'
+  --${ODS} and his_itemname_src rlike '${his_itemname}'
+  and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.his_mz_id rlike '${visitid}'
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_mz_settlement t1 where t.his_mz_id=t1.his_mz_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  group by orgid,orgname,t.his_mz_id, charge,his_itemname,itemname,itemcode
+  --${ODS} ,itemname_src,his_itemname_src
+)
+]]></sql>
+
+
+<!-- 最终结果集 -->
+<sql id="finalQuery"><![CDATA[
+-- 定义住院master主表查询数据集
+, master_zy_query as (
+  select t.orgid,
+  t.orgname,
+  t.his_zy_id  as visitid,
+  concat(trim(clientname),from_timestamp(birthday,'yyyy-MM-dd')) as name
+  from src_his_zy_master_info t where 1=1
+  and t.orgName rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.his_zy_id rlike '${visitid}'
+  and case_id rlike '${case_id}'
+  and concat(trim(t.clientname),substr(t.birthday,1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+)
+
+-- 住院查询最终结果
+, zy_final_set as (
+  select itemname,t1.name,
+ --${month_count}
+  sum(sl) as sl,
+  sum(fy) as fy
+  from zy_detail_set t
+  inner join master_zy_query t1
+  on t.visitid=t1.visitid and t.orgid=t1.orgid
+  group by t1.name,itemname
+  order by fy desc
+)
+
+
+
+
+-- 定义门诊master主表查询数据集
+, master_mz_query as (
+  select t.orgid,
+  t.orgname,
+  t.his_mz_id as visitid,
+  concat(trim(clientname),from_timestamp(birthday,'yyyy-MM-dd')) as name
+  from src_his_mz_master_info t where 1=1
+  and t.orgName rlike '${orgname}'
+  and t.his_mz_id rlike '${visitid}'
+  and '1'='${case_id}'
+  and concat(trim(t.clientname),substr(t.birthday,1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and visitdate>='${leaveDateStart}'
+  and visitdate<='${leaveDateEnd}'
+)
+
+
+-- 门诊查询的最终结果
+, mz_final_set as (
+  select itemname,t1.name,
+ --${month_count}
+  sum(sl) as sl,
+  sum(fy) as fy
+  from  mz_detail_set t
+  inner join master_mz_query t1
+  on t.visitid=t1.visitid and t.orgid=t1.orgid
+  group by t1.name,itemname
+  order by fy desc
+)
+
+
+-- 最终结果查询
+select * from
+  (select * from zy_final_set union all select * from mz_final_set ) t   --${ZY+MM}
+  zy_final_set t   --${ZY}
+  mz_final_set t   --${MM}
+  order by fy desc
+]]></sql>
+</mapper>
+
+

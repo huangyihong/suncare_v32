@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.review.mapper.MedicalUnreasonableActionMapper">
+    <select id="selectPageVO" resultType="com.ai.modules.review.entity.MedicalUnreasonableAction">
+        select distinct t.* from (
+            SELECT
+            <choose>
+                <when test="fields!=null and fields!='' and fields.length>0">
+                     ${fields}
+                </when>
+                <otherwise>
+                    t.*
+                </otherwise>
+            </choose>
+            from MEDICAL_UNREASONABLE_ACTION t ${ew.customSqlSegment}
+        ) t
+        ${joinSql}
+        <if test="whereSql!=null and whereSql!='' and whereSql.length>0">
+            where ${whereSql}
+        </if>
+        <if test="orderbySql!=null and orderbySql!='' and orderbySql.length>0">
+            order by  ${orderbySql}
+        </if>
+
+    </select>
+
+    <select id="selectCount" resultType="java.lang.Integer">
+        select count(1) from (
+            select distinct t.* from
+                (
+                SELECT
+                <choose>
+                    <when test="fields!=null and fields!='' and fields.length>0">
+                        ${fields}
+                    </when>
+                    <otherwise>
+                        t.*
+                    </otherwise>
+                </choose>
+                from MEDICAL_UNREASONABLE_ACTION t
+                <if test="ew!= null">
+                    <if test="ew.nonEmptyOfWhere">
+                        WHERE
+                    </if>
+                    ${ew.sqlSegment}
+                </if>
+                ) t
+            ${joinSql}
+            <if test="whereSql!=null and whereSql!='' and whereSql.length>0">
+                where ${whereSql}
+            </if>
+        ) t
+    </select>
+
+    <select id="selectMapPageVO" resultType="java.util.Map">
+        select distinct t.*
+        <if test="linkFields!=null and linkFields!='' and linkFields.length>0">
+            ,${linkFields}
+        </if>
+        from
+        (
+            SELECT
+            <choose>
+                <when test="fields!=null and fields!='' and fields.length>0">
+                    ${fields}
+                </when>
+                <otherwise>
+                    t.*
+                </otherwise>
+            </choose>
+            from MEDICAL_UNREASONABLE_ACTION t ${ew.customSqlSegment}
+        ) t
+        ${joinSql}
+        <if test="whereSql!=null and whereSql!='' and whereSql.length>0">
+            where ${whereSql}
+        </if>
+        <if test="orderbySql!=null and orderbySql!='' and orderbySql.length>0">
+            order by ${orderbySql}
+        </if>
+    </select>
+
+    <select id="selectMapVO" resultType="java.util.Map">
+        select distinct t.*
+        <if test="linkFields!=null and linkFields!='' and linkFields.length>0">
+            ,${linkFields}
+        </if>
+        from
+        (
+            SELECT
+            <choose>
+                <when test="fields!=null and fields!='' and fields.length>0">
+                    ${fields}
+                </when>
+                <otherwise>
+                    t.*
+                </otherwise>
+            </choose>
+            from MEDICAL_UNREASONABLE_ACTION t
+            <if test="ew!= null">
+                <if test="ew.nonEmptyOfWhere">
+                    WHERE
+                </if>
+                ${ew.sqlSegment}
+            </if>
+        ) t
+        ${joinSql}
+        <if test="whereSql!=null and whereSql!='' and whereSql.length>0">
+            where ${whereSql}
+        </if>
+        <if test="orderbySql!=null and orderbySql!='' and orderbySql.length>0">
+            order by ${orderbySql}
+        </if>
+    </select>
+
+    <select id="facetFields" resultType="java.util.HashMap">
+        select ${factFields} from (
+        select distinct t. * from
+        (
+        SELECT
+        <choose>
+            <when test="selectFields!=null and selectFields!='' and selectFields.length>0">
+                ${selectFields}
+            </when>
+            <otherwise>
+                t.*
+            </otherwise>
+        </choose>
+        from MEDICAL_UNREASONABLE_ACTION t
+        <if test="ew!= null">
+            <if test="ew.nonEmptyOfWhere">
+                WHERE
+            </if>
+            ${ew.sqlSegment}
+        </if>
+        ) t
+        ${joinSql}
+        <if test="whereSql!=null and whereSql!='' and whereSql.length>0">
+            where ${whereSql}
+        </if>
+        ) t
+    </select>
+
+    <select id="facetFieldsPage" resultType="java.util.Map">
+        select ${factFields} from (
+        select distinct t. * from
+        (
+        SELECT
+        <choose>
+            <when test="selectFields!=null and selectFields!='' and selectFields.length>0">
+                ${selectFields}
+            </when>
+            <otherwise>
+                t.*
+            </otherwise>
+        </choose>
+        from MEDICAL_UNREASONABLE_ACTION t
+        <if test="ew!= null">
+            <if test="ew.nonEmptyOfWhere">
+                WHERE
+            </if>
+            ${ew.sqlSegment}
+        </if>
+        ) t
+        ${joinSql}
+        <if test="whereSql!=null and whereSql!='' and whereSql.length>0">
+            where ${whereSql}
+        </if>
+        ) t
+        <if test="groupByFields!=null and groupByFields!='' and groupByFields.length>0">
+            group by ${groupByFields}
+        </if>
+        <if test="orderbySql!=null and orderbySql!='' and orderbySql.length>0">
+            order by ${orderbySql}
+        </if>
+
+    </select>
+
+    <select id="facetFieldsCount" resultType="java.lang.Integer">
+        select count(1) from (select ${factFields} from (
+        select distinct t. * from
+        (
+        SELECT
+        <choose>
+            <when test="selectFields!=null and selectFields!='' and selectFields.length>0">
+                ${selectFields}
+            </when>
+            <otherwise>
+                t.*
+            </otherwise>
+        </choose>
+        from MEDICAL_UNREASONABLE_ACTION t
+        <if test="ew!= null">
+            <if test="ew.nonEmptyOfWhere">
+                WHERE
+            </if>
+            ${ew.sqlSegment}
+        </if>
+        ) t
+        ${joinSql}
+        <if test="whereSql!=null and whereSql!='' and whereSql.length>0">
+            where ${whereSql}
+        </if>
+        ) t
+        <if test="groupByFields!=null and groupByFields!='' and groupByFields.length>0">
+            group by ${groupByFields}
+        </if>
+        ) t
+
+    </select>
+
+    <select id="facetActionData" resultType="java.util.HashMap">
+        select ACTION_ID,ACTION_NAME,count(1) as count from (
+            select distinct t.ACTION_ID,t.ACTION_NAME,t.id from
+            (
+                SELECT ${selectFields}
+                from MEDICAL_UNREASONABLE_ACTION t
+                <if test="ew!= null">
+                    <if test="ew.nonEmptyOfWhere">
+                        WHERE
+                    </if>
+                    ${ew.sqlSegment}
+                </if>
+            ) t
+            ${joinSql}
+            <if test="whereSql!=null and whereSql!='' and whereSql.length>0">
+                where ${whereSql}
+            </if>
+        ) t group by ACTION_ID,ACTION_NAME
+    </select>
+
+    <!-- 初审 -->
+    <update id="updateReviewStatus">
+		UPDATE MEDICAL_UNREASONABLE_ACTION t
+        <trim prefix="set" suffixOverrides=",">
+            <if test="reviewObj != null">
+                <if test="reviewObj.firReviewStatus != null">
+                    FIR_REVIEW_STATUS = #{reviewObj.firReviewStatus},
+                </if>
+                <if test="reviewObj.firReviewClassify != null">
+                    FIR_REVIEW_CLASSIFY = #{reviewObj.firReviewClassify},
+                </if>
+                <if test="reviewObj.pushStatus != null">
+                    PUSH_STATUS = #{reviewObj.pushStatus},
+                </if>
+                <if test="reviewObj.firReviewRemark != null">
+                    FIR_REVIEW_REMARK = #{reviewObj.firReviewRemark},
+                </if>
+                <if test="reviewObj.secReviewStatus != null">
+                    SEC_REVIEW_STATUS = #{reviewObj.secReviewStatus},
+                </if>
+                <if test="reviewObj.secReviewClassify != null">
+                    SEC_REVIEW_CLASSIFY = #{reviewObj.secReviewClassify},
+                </if>
+                <if test="reviewObj.secPushStatus != null">
+                    SEC_PUSH_STATUS = #{reviewObj.secPushStatus},
+                </if>
+                <if test="reviewObj.secReviewRemark != null">
+                    SEC_REVIEW_REMARK = #{reviewObj.secReviewRemark},
+                </if>
+                <if test="reviewObj.predictLabel != null">
+                    PREDICT_LABEL = #{reviewObj.predictLabel},
+                </if>
+                <if test="reviewObj.firReviewUserid != null">
+                    FIR_REVIEW_USERID = #{reviewObj.firReviewUserid},
+                </if>
+                <if test="reviewObj.firReviewUsername != null">
+                    FIR_REVIEW_USERNAME = #{reviewObj.firReviewUsername},
+                </if>
+                <if test="reviewObj.firReviewTime != null">
+                    FIR_REVIEW_TIME = #{reviewObj.firReviewTime},
+                </if>
+                <if test="reviewObj.secReviewUserid != null">
+                    SEC_REVIEW_USERID = #{reviewObj.secReviewUserid},
+                </if>
+                <if test="reviewObj.secReviewUsername != null">
+                    SEC_REVIEW_USERNAME = #{reviewObj.secReviewUsername},
+                </if>
+                <if test="reviewObj.secReviewTime != null">
+                    SEC_REVIEW_TIME = #{reviewObj.secReviewTime},
+                </if>
+                <if test="reviewObj.pushTime != null">
+                    PUSH_TIME = #{reviewObj.pushTime},
+                </if>
+                <if test="reviewObj.pushUserid != null">
+                    PUSH_USERID = #{reviewObj.pushUserid},
+                </if>
+                <if test="reviewObj.pushUsername != null">
+                    PUSH_USERNAME = #{reviewObj.pushUsername},
+                </if>
+                <if test="reviewObj.handleStatus != null">
+                    HANDLE_STATUS = #{reviewObj.handleStatus},
+                </if>
+            </if>
+        </trim>
+		where id in (
+            select t.id from
+            (
+            SELECT
+            <choose>
+                <when test="fields!=null and fields!='' and fields.length>0">
+                    ${fields}
+                </when>
+                <otherwise>
+                    t.*
+                </otherwise>
+            </choose>
+            from MEDICAL_UNREASONABLE_ACTION t
+            <if test="ew!= null">
+                <if test="ew.nonEmptyOfWhere">
+                    WHERE
+                </if>
+                ${ew.sqlSegment}
+            </if>
+            ) t
+            ${joinSql}
+            <if test="whereSql!=null and whereSql!='' and whereSql.length>0">
+                where ${whereSql}
+            </if>
+		)
+	</update>
+</mapper>

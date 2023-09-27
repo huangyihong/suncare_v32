@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.formal.mapper.MedicalFormalCaseMapper">
+
+    <select id="selectCaseBusiVOPage" resultType="com.ai.modules.formal.vo.MedicalFormalCaseBusiVO">
+		SELECT T.*,T1.BUSI_ID,T1.BUSI_NAME,T1.CUST_NAME,T1.BUSI_STATUS,T2.RELA_ID
+		FROM MEDICAL_FORMAL_CASE T,MEDICAL_FORMAL_BUSI T1,MEDICAL_FORMAL_CASE_BUSI T2
+		WHERE T.CASE_ID = T2.CASE_ID AND T1.BUSI_ID = T2.BUSI_ID
+		<if test="voParams != null">
+			<if test="voParams.busiName != null and voParams.busiName != ''">
+				AND T1.BUSI_NAME LIKE '%${voParams.busiName}%'
+			</if>
+			<if test="voParams.actionName != null and voParams.actionName != ''">
+				AND T.ACTION_NAME LIKE '%${voParams.actionName}%'
+			</if>
+			<if test="voParams.dataMoney1 != null and voParams.dataMoney1 != ''">
+		        AND T.DATA_MONEY &gt;= #{voParams.dataMoney1,jdbcType=DECIMAL}
+		    </if>
+		    <if test="voParams.dataMoney2 != null and voParams.dataMoney2 != ''">
+		        AND T.DATA_MONEY &lt;= #{voParams.dataMoney2,jdbcType=DECIMAL}
+		    </if>
+		</if>
+		ORDER BY
+			T1.BUSI_NAME,T.ACTION_NAME
+	</select>
+
+	<select id="selectCaseIdByBatchId" parameterType="String" resultType="String">
+		select t2.case_id from TASK_BATCH_BREAK_RULE t,MEDICAL_FORMAL_CASE_BUSI t2
+		where t.rule_type='01'
+		and t.rule_id = t2.busi_id
+		and t.batch_id = #{batchId, jdbcType=VARCHAR}
+    </select>
+
+    <select id="selectCaseIdByBusiId" parameterType="String" resultType="String">
+		select t2.case_id from MEDICAL_FORMAL_CASE_BUSI t2
+		where t2.busi_id = #{busiId, jdbcType=VARCHAR}
+    </select>
+
+    <select id="selectCaseIdByBehaviorId" parameterType="String" resultType="String">
+		select t2.case_id from MEDICAL_FORMAL_CASE_BEHAVIOR t2
+		where t2.behavior_id = #{behaviorId, jdbcType=VARCHAR}
+    </select>
+    
+    <resultMap id="QueryMedicalFormalCaseVO" type="com.ai.modules.formal.vo.QueryMedicalFormalCaseVO" >
+		<result column="CASE_ID" property="caseId" jdbcType="VARCHAR"/>
+		<result column="CASE_CODE" property="caseCode" jdbcType="VARCHAR"/>
+		<result column="CASE_NAME" property="caseName" jdbcType="VARCHAR"/>
+		<result column="CASE_CODES" property="caseCodes" jdbcType="VARCHAR"/>
+		<result column="CASE_NAMES" property="caseNames" jdbcType="VARCHAR"/>
+		<result column="CASE_STATUS" property="caseStatus" jdbcType="VARCHAR"/>
+		<result column="CASE_REMARK" property="caseRemark" jdbcType="VARCHAR"/>
+		<result column="CASE_VERSION" property="caseVersion" jdbcType="VARCHAR"/>
+		<result column="CASE_CLASSIFY" property="caseClassify" jdbcType="VARCHAR"/>
+		<result column="FLOW_JSON" property="flowJson" jdbcType="VARCHAR"/>
+		<result column="RULE_BASIS" property="ruleBasis" jdbcType="VARCHAR"/>		
+		<collection property="conditionList" javaType="java.util.ArrayList" 
+			ofType="com.ai.modules.formal.entity.MedicalFormalFlowRule" column="CASE_ID">
+			<result column="RULE_ID" property="ruleId" jdbcType="VARCHAR"/>
+			<result column="NODE_ID" property="nodeId" jdbcType="VARCHAR"/>
+			<result column="CASE_ID" property="caseId" jdbcType="VARCHAR"/>
+			<result column="GROUP_NO" property="groupNo" jdbcType="VARCHAR"/>
+			<result column="LOGIC" property="logic" jdbcType="VARCHAR"/>
+			<result column="TABLE_NAME" property="tableName" jdbcType="VARCHAR"/>
+			<result column="COL_NAME" property="colName" jdbcType="VARCHAR"/>
+			<result column="COMPARE_TYPE" property="compareType" jdbcType="VARCHAR"/>
+			<result column="COMPARE_VALUE" property="compareValue" jdbcType="VARCHAR"/>
+			<result column="ORDER_NO" property="orderNo" jdbcType="INTEGER"/>
+			<result column="NODE_CODE" property="nodeCode" jdbcType="VARCHAR"/>
+		</collection>		
+	</resultMap>
+	
+	<select id="referMedicalFormalCase" resultMap="QueryMedicalFormalCaseVO">
+		SELECT
+		a.*,
+		b.RULE_ID,
+		b.NODE_ID, 
+		b.GROUP_NO,
+		b.LOGIC,
+		b.TABLE_NAME,
+		b.COL_NAME,
+		b.COMPARE_TYPE,
+		b.COMPARE_VALUE,
+		b.ORDER_NO,
+		b.NODE_CODE
+	FROM
+		MEDICAL_FORMAL_CASE a
+	JOIN MEDICAL_FORMAL_FLOW_RULE b ON
+		a.CASE_ID = b.CASE_ID
+		WHERE b.COL_NAME='DISEASECODEGROUP' or b.COL_NAME='DIAGGROUP_CODE'
+	</select>
+</mapper>

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 3.MDCY组 -->
+<mapper>
+    <sql id="script"><![CDATA[
+        --3.MDCY组
+with t_master_info as(
+select
+	*
+from
+	src_his_zy_master_info a
+where
+	not exists(
+	select 1 from
+		medical_gbdp.medical_visit_mdc b where batch_id='${batchId}' and a.visitid=b.visitid and a.orgid=b.orgid)
+	and a.orgid in ${orgid}
+	and a.admitdate>='${startDate}'
+    and a.admitdate<='${endDate}'
+),
+--MDCY规则
+t_mdcy_rule as (
+select
+	*
+from
+	medical_gbdp.drg_catalog_detail
+where
+	catalog_type = 'ADRG_LIST_V'
+	and mdc_catalog_code = 'MDCY'
+	and catalog_id = '${adrgDiagCatalogId}'
+),
+t_diag_info as(
+select distinct
+	diag.visitid,
+	diag.orgid,
+	string_agg(diag.diseasecode, ',' order by diag.diseasecode) mdc_diag_code,
+	string_agg(diag.diseasename, ',' order by diag.diseasecode) mdc_diag_name
+from src_his_zy_diag diag join t_mdcy_rule r on diag.diseasecode = r.diag_code1
+where 1=1
+and diag.orgid in ${orgid}
+group by diag.visitid,diag.orgid
+)
+insert into medical_gbdp.medical_visit_mdc(
+	id,
+	batch_id,
+	visitid,
+	orgid,
+	mdc,
+	project,
+	mdc_diag_code,
+	mdc_diag_name,
+	created_by,
+	created_by_name,
+	created_time)
+select
+	md5(concat_ws('_', '${batchId}', a.visitid, a.orgid, 'MDCY')) id,
+	'${batchId}' batch_id,
+	a.visitid,
+	a.orgid,
+	'MDCY' mdc,
+	'${project}',
+	diag.mdc_diag_code,
+	diag.mdc_diag_name,
+	null created_by,
+	null created_by_name,
+	null created_time
+from
+	t_master_info a
+join t_diag_info diag on a.visitid=diag.visitid and a.orgid=diag.orgid
+where
+	extract(day from (a.admitdate::timestamp-a.birthday::timestamp)) > 29;
+    ]]></sql>
+</mapper>

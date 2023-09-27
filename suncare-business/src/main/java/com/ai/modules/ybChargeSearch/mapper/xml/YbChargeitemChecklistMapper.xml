@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.ybChargeSearch.mapper.YbChargeitemChecklistMapper">
+    <select id="getUserBtnPermission" resultType="java.lang.String">
+        select t4.NAME
+        from sys_user t1,
+             sys_user_role t2,
+             sys_role_permission t3,
+             sys_permission t4
+        where 1 = 1
+          and t1.USERNAME = #{username}
+          and t1.ID = t2.USER_ID
+          and t2.ROLE_ID = t3.ROLE_ID
+          and t3.PERMISSION_ID = t4.ID
+          and t4.MENU_TYPE = '2'
+
+    </select>
+    <select id="selectPageVO" resultType="com.ai.modules.ybChargeSearch.entity.YbChargeitemChecklist">
+        select *
+        from (
+            select t1.id,t1.itemname,t1.itemname1,t1.item_type,t1.is_same_day,t1.examine_status,t1.item1_type,t1.item1_wgtype,
+                   t1.qty_type,t1.qty_num,t1.item_code1,t1.package_item1,t1.item_code2,t1.package_item2,t1.wg_case_example,
+                   t1.sorter,t1.examine_by,t1.examine_time,
+                   sum(t2.total_fee) as total_fee,sum(t2.record_count) as record_count,count(t2.id) as query_count
+            from yb_chargeitem_checklist t1
+            left join yb_charge_search_history t2 on t1.itemname =t2.itemname and t1.itemname1=t2.itemname1
+            group by t1.id,t1.itemname,t1.itemname1,t1.item_type,t1.is_same_day,t1.examine_status,t1.item1_type,t1.item1_wgtype,
+                     t1.qty_type,t1.qty_num,t1.item_code1,t1.package_item1,t1.item_code2,t1.package_item2,t1.wg_case_example,
+                     t1.sorter,t1.examine_by,t1.examine_time
+            order by t1.created_time desc
+
+             ) t ${ew.customSqlSegment}
+    </select>
+
+</mapper>

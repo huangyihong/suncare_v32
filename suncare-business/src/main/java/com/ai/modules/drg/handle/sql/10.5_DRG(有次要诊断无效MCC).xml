@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 10.DRG组(有次要诊断无效MCC) -->
+<mapper>
+    <sql id="script"><![CDATA[
+        --DRG组(有次要诊断无效MCC)
+drop table if exists medical_gbdp.t_medical_visit_drg_${seq};
+create table medical_gbdp.t_medical_visit_drg_${seq} as (
+select distinct
+	a.*,
+	b.code drg,
+	b.name drg_name,
+	b.valid_mcc,
+	b.valid_cc
+from medical_gbdp.t_medical_visit_adrg_list_${seq} a
+join medical_gbdp.t_catalog_drg_${seq} b on a.mdc = b.mdc_catalog_code and a.adrg = b.adrg_catalog_code
+where
+	b.valid_second_diag = '1'
+	and b.valid_mcc = '0'
+	and a.batch_id='${batchId}'
+) distributed by (visitid,orgid);
+create index t_medical_visit_drg_${seq}_idx1 on medical_gbdp.t_medical_visit_drg_${seq}(visitid, orgid);
+
+--诊断cc表
+drop table if exists medical_gbdp.t_drg_cc_${seq};
+create table medical_gbdp.t_drg_cc_${seq} as(
+select * from medical_gbdp.drg_catalog_detail
+where catalog_type = 'CC_INFO_V'
+	and catalog_id = '${ccCatalogId}'
+);
+
+--次诊断cc排除表
+drop table if exists medical_gbdp.t_second_diag_visit_${seq};
+create table medical_gbdp.t_second_diag_visit_${seq} as(
+select b.visitid,b.orgid,b.diseasecode,c.exclude_content from src_his_zy_diag b
+join medical_gbdp.t_drg_cc_${seq} c on b.diseasecode=c.code
+where exists(select 1 from medical_gbdp.t_medical_visit_drg_${seq} x where x.visitid = b.visitid and x.orgid=b.orgid)
+) distributed by (visitid,orgid);
+create index t_second_diag_visit_${seq}_idx1 on medical_gbdp.t_second_diag_visit_${seq}(visitid, orgid);
+
+--诊断排除表
+drop table if exists medical_gbdp.t_drg_diag_exclude_${seq};
+create table medical_gbdp.t_drg_diag_exclude_${seq} as(
+select * from medical_gbdp.drg_catalog_detail
+where catalog_type = 'EXCLUDE_INFO_V'
+	and catalog_id = '${excludeCatalogId}'
+);
+
+--主诊断(满足入组诊断的作为主诊断)
+drop table if exists medical_gbdp.t_main_diag_visit_${seq};
+create table medical_gbdp.t_main_diag_visit_${seq} as(
+select a.visitid,a.orgid,a.adrg,a.diseasecode,c.exclude_content from medical_gbdp.t_medical_visit_drg_${seq} a
+join medical_gbdp.t_drg_diag_exclude_${seq} c on a.diseasecode=c.code
+) distributed by (visitid,orgid);
+create index t_main_diag_visit_${seq}_idx1 on medical_gbdp.t_main_diag_visit_${seq}(visitid, orgid);
+
+--有效cc
+drop table if exists medical_gbdp.t_valid_cc_${seq};
+create table medical_gbdp.t_valid_cc_${seq} as(
+select distinct a.visitid, a.orgid, a.adrg, a.diseasecode
+from medical_gbdp.t_main_diag_visit_${seq} a
+where exists(select 1 from medical_gbdp.t_second_diag_visit_${seq} b
+	where a.visitid=b.visitid
+		and a.orgid=b.orgid
+		and a.diseasecode!=b.diseasecode
+		and a.exclude_content!=b.exclude_content)
+);
+
+--DRG分组(有效cc)
+insert into medical_gbdp.medical_visit_drg(
+	id,
+	batch_id,
+	visitid,
+	orgid,
+	mdc,
+	mdc_name,
+	adrg,
+	adrg_name,
+	drg,
+	drg_name,
+	drg_step,
+	drg_step_desc,
+	project,
+	drg_diag_code,
+	drg_diag_name,
+	drg_surgery_code,
+	drg_surgery_name,
+	created_by,
+	created_by_name,
+	created_time)
+select
+	md5(concat_ws('_', '${batchId}', a.visitid, a.orgid, a.mdc, a.adrg, a.drg, a.diseasecode, a.surgery_code)) id,
+	'${batchId}' batch_id,
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	a.mdc_name,
+	a.adrg,
+	a.adrg_name,
+	a.drg,
+	a.drg_name,
+	'12',
+	'12.DRG有次要诊断有效CC',
+	'${project}',
+	a.diseasecode drg_diag_code,
+	a.diseasename drg_diag_name,
+	a.surgery_code drg_surgery_code,
+	a.surgery_name drg_surgery_name,
+	null created_by,
+	null created_by_name,
+	null created_time
+from
+	medical_gbdp.t_medical_visit_drg_${seq} a
+where
+	not exists(
+	select
+		1
+	from
+		medical_gbdp.medical_visit_drg b
+	where
+		a.visitid = b.visitid
+		and a.orgid = b.orgid
+		and a.mdc = b.mdc
+		and a.adrg = b.adrg
+		and a.diseasecode = b.drg_diag_code
+		and b.batch_id='${batchId}')
+	and a.valid_cc = '1'
+	and exists(
+	select
+		1
+	from
+		medical_gbdp.t_valid_cc_${seq} c
+	where
+		a.visitid = c.visitid
+		and a.orgid = c.orgid
+		and a.adrg = c.adrg
+		and a.diseasecode = c.diseasecode);
+--DRG分组(有效cc，遇到有效cc无法入伴一般并发症组（A13）时选择入不伴并发症组（A15）)
+with t_drg_min as(
+select
+	a.visitid,
+	a.orgid,
+	a.adrg,
+	a.diseasecode,
+	max(a.drg) drg
+from medical_gbdp.t_medical_visit_drg_${seq} a
+where
+    not exists(select 1 from medical_gbdp.medical_visit_drg b
+    where a.visitid=b.visitid and a.orgid=b.orgid and a.mdc=b.mdc and a.adrg=b.adrg and a.diseasecode=b.drg_diag_code and b.batch_id='${batchId}')
+    and a.valid_cc='0'
+	and exists(select 1 from medical_gbdp.t_valid_cc_${seq} c where a.visitid=c.visitid and a.orgid=c.orgid and a.adrg=c.adrg and a.diseasecode = c.diseasecode)
+	group by a.visitid,a.orgid,a.adrg,a.diseasecode
+)
+insert into medical_gbdp.medical_visit_drg(
+	id,
+	batch_id,
+	visitid,
+	orgid,
+	mdc,
+	mdc_name,
+	adrg,
+	adrg_name,
+	drg,
+	drg_name,
+	drg_step,
+	drg_step_desc,
+	project,
+	drg_diag_code,
+	drg_diag_name,
+	drg_surgery_code,
+	drg_surgery_name,
+	created_by,
+	created_by_name,
+	created_time)
+select
+	md5(concat_ws('_', '${batchId}', a.visitid, a.orgid, a.mdc, a.adrg, a.drg, a.diseasecode, a.surgery_code)) id,
+	'${batchId}' batch_id,
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	a.mdc_name,
+	a.adrg,
+	a.adrg_name,
+	a.drg,
+	a.drg_name,
+	'12',
+	'12.DRG有次要诊断有效CC，但缺失伴一般并发症',
+	'${project}',
+	a.diseasecode drg_diag_code,
+	a.diseasename drg_diag_name,
+	a.surgery_code drg_surgery_code,
+	a.surgery_name drg_surgery_name,
+	null created_by,
+	null created_by_name,
+	null created_time
+from
+	medical_gbdp.t_medical_visit_drg_${seq} a
+where
+	not exists(
+	select
+		1
+	from
+		medical_gbdp.medical_visit_drg b
+	where
+		a.visitid = b.visitid
+		and a.orgid = b.orgid
+		and a.mdc = b.mdc
+		and a.adrg = b.adrg
+		and a.diseasecode = b.drg_diag_code
+		and b.batch_id='${batchId}')
+	and exists(
+	select
+		1
+	from
+		t_drg_min c
+	where
+		a.visitid = c.visitid
+		and a.orgid = c.orgid
+		and a.adrg = c.adrg
+		and a.diseasecode = c.diseasecode);
+--DRG分组(无效cc)
+insert into medical_gbdp.medical_visit_drg(
+	id,
+	batch_id,
+	visitid,
+	orgid,
+	mdc,
+	mdc_name,
+	adrg,
+	adrg_name,
+	drg,
+	drg_name,
+	drg_step,
+	drg_step_desc,
+	project,
+	drg_diag_code,
+	drg_diag_name,
+	drg_surgery_code,
+	drg_surgery_name,
+	created_by,
+	created_by_name,
+	created_time)
+select
+	md5(concat_ws('_', '${batchId}', a.visitid, a.orgid, a.mdc, a.adrg, a.drg, a.diseasecode, a.surgery_code)) id,
+	'${batchId}' batch_id,
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	a.mdc_name,
+	a.adrg,
+	a.adrg_name,
+	a.drg,
+	a.drg_name,
+	'13',
+	'13.DRG有次要诊断无效CC',
+	'${project}',
+	a.diseasecode drg_diag_code,
+	a.diseasename drg_diag_name,
+	a.surgery_code drg_surgery_code,
+	a.surgery_name drg_surgery_name,
+	null created_by,
+	null created_by_name,
+	null created_time
+from
+	medical_gbdp.t_medical_visit_drg_${seq} a
+where
+	not exists(
+	select
+		1
+	from
+		medical_gbdp.medical_visit_drg b
+	where
+		a.visitid = b.visitid
+		and a.orgid = b.orgid
+		and a.mdc = b.mdc
+		and a.adrg = b.adrg
+		and a.diseasecode = b.drg_diag_code
+		and b.batch_id='${batchId}')
+	and a.valid_cc = '0'
+	and not exists(
+	select
+		visitid
+	from
+		medical_gbdp.t_valid_cc_${seq} c
+	where
+		a.visitid = c.visitid
+		and a.orgid = c.orgid
+		and a.adrg = c.adrg
+		and a.diseasecode = c.diseasecode);
+--DRG分组(无效cc，未找到DRG编码，默认在ADRG编码后面追加9作为DRG编码)
+insert into medical_gbdp.medical_visit_drg(
+	id,
+	batch_id,
+	visitid,
+	orgid,
+	mdc,
+	mdc_name,
+	adrg,
+	adrg_name,
+	drg,
+	drg_name,
+	drg_step,
+	drg_step_desc,
+	project,
+	drg_diag_code,
+	drg_diag_name,
+	drg_surgery_code,
+	drg_surgery_name,
+	created_by,
+	created_by_name,
+	created_time)
+select
+	md5(concat_ws('_', '${batchId}', a.visitid, a.orgid, a.mdc, a.adrg, a.drg, a.diseasecode, a.surgery_code)) id,
+	'${batchId}' batch_id,
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	a.mdc_name,
+	a.adrg,
+	a.adrg_name,
+	concat(a.adrg,'9') drg,
+	a.adrg_name drg_name,
+	'13',
+	'13.DRG有次要诊断无效CC',
+	'${project}',
+	a.diseasecode drg_diag_code,
+	a.diseasename drg_diag_name,
+	a.surgery_code drg_surgery_code,
+	a.surgery_name drg_surgery_name,
+	null created_by,
+	null created_by_name,
+	null created_time
+from
+	medical_gbdp.t_medical_visit_drg_${seq} a
+where
+	not exists(
+	select
+		1
+	from
+		medical_gbdp.medical_visit_drg b
+	where
+		a.visitid = b.visitid
+		and a.orgid = b.orgid
+		and a.mdc = b.mdc
+		and a.adrg = b.adrg
+		and a.diseasecode = b.drg_diag_code
+		and b.batch_id='${batchId}')
+	and a.valid_cc = '0'
+	and not exists(
+	select
+		1
+	from
+		medical_gbdp.t_valid_cc_${seq} c
+	where
+		a.visitid = c.visitid
+		and a.orgid = c.orgid
+		and a.adrg = c.adrg
+		and a.diseasecode = c.diseasecode);
+    ]]></sql>
+</mapper>

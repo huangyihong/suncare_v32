@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.config.mapper.MedicalColConfigMapper">
+    <select id="getRuleSelectCol" resultType="com.ai.modules.config.vo.MedicalColConfigVO">
+		SELECT t.*,
+			   t2.value TAB_CHN_NAME
+		FROM MEDICAL_COL_CONFIG t,
+			 MEDICAL_DICT t1,
+			 MEDICAL_DICT_ITEM t2
+		WHERE
+			t1.GROUP_CODE = 'DATA'
+		  AND t1.KIND = '99'
+		  AND t1.GROUP_ID = t2.GROUP_ID
+			<if test="tableName!=null and tableName!=''">
+				AND t.TAB_NAME = #{tableName}
+			</if>
+		  AND t.TAB_NAME = t2.code
+		ORDER BY t.COL_ORDER
+	</select>
+
+</mapper>

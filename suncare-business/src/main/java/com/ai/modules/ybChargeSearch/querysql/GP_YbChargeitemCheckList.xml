@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+
+
+<sql id="detail_with_itemname_fee"><![CDATA[
+    select
+    t1.id,t1.itemname,t1.itemname1,t1.item_type,t1.is_same_day,t1.item1_type,t1.item1_wgtype,t1.qty_type,
+    t1.qty_num,t1.item_code1,t1.package_item1,t1.item_code2,t1.package_item2,t1.wg_case_example,t1.sorter,
+    coalesce(sum(cast(t2.fee as integer)),0)as fee
+    from yb_chargeitem_checklist t1
+    left join yb_chargeitem_sum t2 on t1.package_item1 = t2.itemname
+    and t2.orgname in ${orgname}
+    and t2.item_month >= '${chargedateStartdate}'
+    and t2.item_month <= '${chargedateEnddate}'
+    and t2.item_type ~ '${etlSource}'
+    and t2.project = '${dataSource}'
+    and t2.item_class = '${itemClass}'
+    where 1=1
+    and t1.itemname ~ '${itemname}'
+    and t1.item_type ~ '${item_type}'
+    and t1.is_same_day ~ '${is_same_day}'
+    and t1.item1_type ~ '${item1_type}'
+    and t1.item1_wgtype ~ '${item1_wgtype}'
+    and t1.qty_type ~ '${qty_type}'
+    and t1.qty_num = '${qty_num}'
+    and t1.item_code1 ~ '${item_code1}'
+    and t1.package_item1 ~ '${package_item1}'
+    and t1.item_code2 ~ '${item_code2}'
+    and t1.package_item2 ~ '${package_item2}'
+    and t1.wg_case_example ~ '${wg_case_example}'
+    and t1.sorter ~ '${sorter}'
+    group by  t1.id,t1.itemname,t1.itemname1,t1.item_type,t1.is_same_day,t1.item1_type,t1.item1_wgtype,t1.qty_type,
+    t1.qty_num,t1.item_code1,t1.package_item1,t1.item_code2,t1.package_item2,t1.wg_case_example,t1.sorter
+    order by fee desc
+    limit ${size} OFFSET ${current}
+
+]]></sql>
+
+<sql id="detail_with_itemname_fee_count"><![CDATA[
+select count(t.*) as total from (
+    select
+    t1.id,t1.itemname,t1.itemname1,t1.item_type,t1.is_same_day,t1.item1_type,t1.item1_wgtype,t1.qty_type,
+    t1.qty_num,t1.item_code1,t1.package_item1,t1.item_code2,t1.package_item2,t1.wg_case_example,t1.sorter,
+    coalesce(sum(cast(t2.fee as integer)),0)as fee
+    from yb_chargeitem_checklist t1
+    left join yb_chargeitem_sum t2 on t1.package_item1 = t2.itemname
+    and t2.orgname in ${orgname}
+    and t2.item_month >= '${chargedateStartdate}'
+    and t2.item_month <= '${chargedateEnddate}'
+    and t2.item_type ~ '${etlSource}'
+    and t2.project = '${dataSource}'
+    where 1=1
+    and t1.itemname ~ '${itemname}'
+    and t1.item_type ~ '${item_type}'
+    and t1.is_same_day ~ '${is_same_day}'
+    and t1.item1_type ~ '${item1_type}'
+    and t1.item1_wgtype ~ '${item1_wgtype}'
+    and t1.qty_type ~ '${qty_type}'
+    and t1.qty_num = '${qty_num}'
+    and t1.item_code1 ~ '${item_code1}'
+    and t1.package_item1 ~ '${package_item1}'
+    and t1.item_code2 ~ '${item_code2}'
+    and t1.package_item2 ~ '${package_item2}'
+    and t1.wg_case_example ~ '${wg_case_example}'
+    and t1.sorter ~ '${sorter}'
+    and t1.examine_status='1'
+
+    group by  t1.id,t1.itemname,t1.itemname1,t1.item_type,t1.is_same_day,t1.item1_type,t1.item1_wgtype,t1.qty_type,
+    t1.qty_num,t1.item_code1,t1.package_item1,t1.item_code2,t1.package_item2,t1.wg_case_example,t1.sorter
+
+) as t
+
+
+]]></sql>
+
+
+</mapper>
+
+

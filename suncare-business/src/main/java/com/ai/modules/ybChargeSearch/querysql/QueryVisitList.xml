@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- 住院门慢清单下载 -->
+<mapper>
+<!-- 住院门慢清单下载 医保 -->
+<sql id="querySql_YB"><![CDATA[
+with settlement_set as (
+  select visitid,orgid,orgname, sum(totalfee) as totalfee,sum(fundpay) as fundpay
+  from src_yb_settlement t where 1=1
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  -- 不包含自费就诊记录 ${fundpayonly}
+  and fundpay>0  --${fundpayonly}
+  and settlementdate>='${yearStart}'
+  and settlementdate<='${yearEnd}'
+  group by visitid,orgid,orgname
+)
+-- 定义医保diag表
+, yb_diag_set as (
+  SELECT orgid,orgname, visitid ,group_concat(distinct diseasename,'_') as dis
+  --${ODS} ,group_concat( diseasename_src,'_') as dis_src
+  --${SRC} ,'' as dis_src
+  from src_yb_diag t
+  where 1=1
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.diseasename ~ '${diseasename}'
+  GROUP BY orgid,orgname,visitid
+)
+--定义收费+诊断联合体
+, yb_settlement_diag_set as (
+  select t.*,t1.dis,t1.dis_src  from settlement_set t
+  --${NotDiseasename} left join join yb_diag_set t1
+  --${hasDiseasename} inner join join yb_diag_set t1
+  on t.visitid=t1.visitid and t.orgid=t1.orgid
+)
+,master_set as (
+  select t.orgid,t.orgname,t.visitid,t.visittype,t.doctorname,t.deptname,concat(trim(clientname),substr(birthday,1,10)) as name,
+  sex,substr(t.visitdate,1,10) as visitdate,substr(t.leavedate,1,10) as leavedate,
+  datediff(t.leavedate,t.visitdate) as visitdays,
+  nvl(floor((months_between(substr(visitdate,1,10),substr(birthday,1,10)))/12),yearage) as yearage,
+  t1.dis as dis,t1.dis_src,totalfee,fundpay
+  from src_yb_master_info t inner join yb_settlement_diag_set t1
+  on t.visitid=t1.visitid and t.orgid=t1.orgid
+  where 1=1
+  and t.visittype not rlike '住院'  --${MM}
+  and t.visittype rlike '住院'  --${ZY}
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.visitid rlike '${visitid}'
+  and concat(trim(t.clientname),substr(t.birthday,1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+  and t.visitdate>='${startVisitdate}'
+  and t.visitdate<='${endVisitdate}'
+  and t.doctorid = '${doctorid}'
+  and t.doctorname = '${doctorname}'
+)
+--读取标签表
+, tagname_set as (
+  SELECT group_concat(distinct tag_name,',') as tag_name ,orgname_src,visitid_src
+  from medical.dwb_visitid_tag where 1=1
+  and etl_source='${etl_source}'
+  and project='${project}'
+  GROUP BY orgname_src,visitid_src
+)
+--查询最终结果
+select t.* ,t1.tag_name from master_set t left join tagname_set t1
+  on t.orgname=t1.orgname_src and t.visitid=t1.visitid_src
+  where 1=1 and t1.tag_name='${tagName}'
+  order by visitdate
+
+]]></sql>
+
+
+
+<!-- 住院门慢清单下载 医院HIS来源 -->
+<sql id="querySql_HIS"><![CDATA[
+-- 住院收费
+with settlement_set_zy as (
+  select his_zy_id  as visitid,orgid,orgname, sum(totalfee) as totalfee,sum(fundpay) as fundpay
+  from src_his_zy_settlement t where 1=1
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  -- 不包含自费就诊记录 ${fundpayonly}
+  and fundpay>0  --${fundpayonly}
+  and settlementdate>='${yearStart}'
+  and settlementdate<='${yearEnd}'
+  group by his_zy_id,orgid,orgname
+)
+-- 门诊收费
+, settlement_set_mz as (
+  select his_mz_id as visitid,orgid,orgname, sum(totalfee) as totalfee,sum(fundpay) as fundpay
+  from src_his_mz_settlement t where 1=1
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  -- 不包含自费就诊记录 ${fundpayonly}
+  and fundpay>0  --${fundpayonly}
+  and settlementdate>='${yearStart}'
+  and settlementdate<='${yearEnd}'
+  group by his_mz_id,orgid,orgname
+)
+-- 定义住院 diag表
+, diag_zy_set as (
+  SELECT orgid,orgname,his_visitid as visitid ,group_concat(distinct diseasename,'_') as dis from src_his_zy_diag t
+  where 1=1
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.diseasename ~ '${diseasename}'
+  GROUP BY orgid,orgname,his_visitid
+)
+-- 定义门诊 diag表
+, diag_mz_set as (
+  SELECT orgid,orgname,his_mz_id as visitid ,group_concat(distinct diseasename,'_') as dis  from src_his_mz_diag t
+  where 1=1
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.diseasename ~ '${diseasename}'
+  GROUP BY orgid,orgname,his_mz_id
+)
+-- 住院结果集
+, zy_final_set as (
+  select t.orgid,t.orgname,t.his_zy_id  as visitid,if(visittype is null or visittype='' ,'住院' ,visittype) as visittype,
+  t.doctorname,admit_deptname as deptname,concat(trim(clientname),substr(birthday,1,10)) as name,
+  sex,substr(t.admitdate,1,10) as visitdate,substr(t.leavedate,1,10) as leavedate,
+  datediff(t.leavedate,t.admitdate) as visitdays,
+  nvl(floor((months_between(substr(admitdate,1,10),substr(birthday,1,10)))/12),yearage) as yearage,
+  t2.dis, t1.totalfee,fundpay
+  from src_his_zy_master_info t inner join settlement_set_zy t1 inner join diag_zy_set t2
+  on t.his_zy_id=t1.visitid and t.orgid=t1.orgid and t.his_zy_id=t2.visitid
+  and t.orgid=t2.orgid and t1.visitid=t2.visitid and t1.orgid=t2.orgid
+  where 1=1
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.visitid rlike '${visitid}'
+  and concat(trim(t.clientname),substr(t.birthday,1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+  and t.visitdate>='${startVisitdate}'
+  and t.visitdate<='${endVisitdate}'
+  and t.doctorid = '${doctorid}'
+  and t.doctorname = '${doctorname}'
+)
+-- 门诊结果集
+, mz_final_set as (
+  select t.orgid,t.orgname,t.his_mz_id  as visitid,if(visittype is null or visittype='' ,'门诊' ,visittype) as visittype,
+  t.doctorname,deptname,concat(trim(clientname),substr(birthday,1,10)) as name,
+  sex,substr(t.visitdate,1,10) as visitdate,substr(t.visitdate,1,10) as leavedate, 0 as visitdays ,
+  nvl(floor((months_between(substr(visitdate,1,10),substr(birthday,1,10)))/12),yearage) as yearage,
+  t2.dis, t1.totalfee,fundpay
+  from src_his_mz_master_info t inner join settlement_set_mz t1 inner join diag_mz_set t2
+  on t.his_mz_id=t1.visitid and t.orgid=t1.orgid and t.his_mz_id=t2.visitid
+  and t.orgid=t2.orgid and t1.visitid=t2.visitid and t1.orgid=t2.orgid
+  where 1=1
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.visitid rlike '${visitid}'
+  and concat(trim(t.clientname),substr(t.birthday,1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+  and t.visitdate>='${startVisitdate}'
+  and t.visitdate<='${endVisitdate}'
+  and t.doctorid = '${doctorid}'
+  and t.doctorname = '${doctorname}'
+)
+--标签表
+, tagname_set as (
+  SELECT group_concat(distinct tag_name,',') as tag_name ,orgname_src,visitid_src
+  from medical.dwb_visitid_tag where 1=1
+  and etl_source='${etl_source}'
+  and project='${project}'
+  GROUP BY orgname_src,visitid_src
+)
+-- 最终结果集
+  select t.*,t1.tag_name from
+  zy_final_set  --${ZY}
+  mz_final_set  --${MM}
+  ( select * from zy_final_set union all select * from mz_final_set )  --${ZY+MM}
+  t left join tagname_set t1
+  on t.orgname=t1.orgname_src and t.visitid=t1.visitid_src
+  where 1=1 and t1.tag_name='${tagName}'
+  order by visitdate
+
+]]></sql>
+</mapper>

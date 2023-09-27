@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.ybFj.mapper.YbFjProjectClueCutDtlMapper">
+
+    <insert id="insertCutClueDtl" parameterType="com.ai.modules.ybFj.dto.SyncClueDto">
+        insert into
+        yb_fj_project_clue_cut_dtl(clue_dtl_id,
+        project_id,
+        project_org_id,
+        clue_id,
+        orgname,
+        visitid,
+        doctorname,
+        deptname,
+        visittype,
+        clientname,
+        sex,
+        visitdate,
+        leavedate,
+        yearage,
+        dis,
+        his_itemname,
+        itemname,
+        chargeattri,
+        sl,
+        fy,
+        create_time,
+        create_username,
+        create_user,
+        itemclass,
+        `year`,
+        insure_no,
+        idcard,
+        company_addr,
+        orgcode,
+        org_region,
+        settlement_time,
+        zy_days,
+        client_type,
+        offsite_type,
+        insured_region,
+        totalfee,
+        fundpay,
+        dbpay,
+        acctpay,
+        fee_deptname,
+        fee_doctorname,
+        his_itemcode,
+        itemcode,
+        chargedate,
+        chargeclass,
+        selfpay_prop,
+        itemprice,
+        wg_fee)
+        select
+        clue_dtl_id,
+        project_id,
+        project_org_id,
+        clue_id,
+        orgname,
+        visitid,
+        doctorname,
+        deptname,
+        visittype,
+        clientname,
+        sex,
+        visitdate,
+        leavedate,
+        yearage,
+        dis,
+        his_itemname,
+        itemname,
+        chargeattri,
+        sl,
+        fy,
+        #{createTime,jdbcType=TIMESTAMP},
+        #{createUsername,jdbcType=VARCHAR},
+        #{createUser,jdbcType=VARCHAR},
+        itemclass,
+        `year`,
+        insure_no,
+        idcard,
+        company_addr,
+        orgcode,
+        org_region,
+        settlement_time,
+        zy_days,
+        client_type,
+        offsite_type,
+        insured_region,
+        totalfee,
+        fundpay,
+        dbpay,
+        acctpay,
+        fee_deptname,
+        fee_doctorname,
+        his_itemcode,
+        itemcode,
+        chargedate,
+        chargeclass,
+        selfpay_prop,
+        itemprice,
+        wg_fee
+        from
+        <choose>
+            <when test="prevStep != null and prevStep == 'onsite' ">
+                yb_fj_project_clue_onsite_dtl
+            </when>
+            <otherwise>
+                yb_fj_project_clue_dtl
+            </otherwise>
+        </choose>
+        where
+        clue_id in
+        <foreach collection="clueIds" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </insert>
+
+    <select id="queryTaskClueVo" resultType="com.ai.modules.ybFj.vo.TaskClueVo">
+        select sum(sl) case_amount, sum(fy) case_fee from yb_fj_project_clue_cut_dtl
+                                                              ${ew.customSqlSegment}
+    </select>
+</mapper>

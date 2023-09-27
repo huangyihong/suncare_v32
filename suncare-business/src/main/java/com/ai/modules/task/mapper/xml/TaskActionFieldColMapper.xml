@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.task.mapper.TaskActionFieldColMapper">
+
+
+    <select id="queryDefCol" resultType="com.ai.modules.task.vo.TaskActionFieldColVO">
+        SELECT
+        t.*,
+        t2.WHERE_INPUT_TYPE,
+        t2.DATA_TYPE,
+        t2.SELECT_TYPE
+        FROM
+        TASK_ACTION_FIELD_COL t
+        LEFT JOIN MEDICAL_COL_CONFIG t2 ON t2.TAB_NAME = t.TABLE_NAME and t2.COL_NAME = T.COL_NAME
+        WHERE t.DEF_SELECT = '1' AND t.STATUS = 'normal'
+        ORDER BY t.ORDER_NO
+    </select>
+
+    <select id="queryDefSerCol" resultType="com.ai.modules.task.vo.TaskActionFieldColVO">
+        SELECT
+        t.*
+        FROM
+        TASK_ACTION_FIELD_COL t
+        WHERE t.DEF_SEARCH = '1' AND t.STATUS = 'normal'
+        ORDER BY t.SER_ORDER_NO
+    </select>
+
+    <select id="queryDefColSimple" resultType="com.ai.modules.task.entity.TaskActionFieldCol">
+        SELECT
+        t.TABLE_NAME,
+        t.COL_NAME,
+        t.COL_CNNAME,
+        t.COL_WIDTH
+        FROM
+        TASK_ACTION_FIELD_COL t
+        WHERE t.DEF_SELECT = '1' AND t.STATUS = 'normal'
+        <if test="platform != null and platform != ''">
+            AND t.PLATFORM in ('all', #{platform})
+        </if>
+        ORDER BY t.ORDER_NO
+    </select>
+
+    <select id="queryColByAction" resultType="com.ai.modules.task.vo.TaskActionFieldColVO">
+        SELECT
+        t1.CONFIG_ID,
+        t3.WHERE_INPUT_TYPE,
+        t3.DATA_TYPE,
+        t3.SELECT_TYPE,
+        <!--        nvl(t1.COL_CNNAME,t.COL_CNNAME) COL_CNNAME, -->
+        ifnull(t1.COL_CNNAME,t.COL_CNNAME) COL_CNNAME,
+        t.*
+        FROM
+        TASK_ACTION_FIELD_RELA t1
+        JOIN TASK_ACTION_FIELD_COL t ON t.COL_ID = t1.COL_ID
+        AND t.STATUS = 'normal'
+        JOIN TASK_ACTION_FIELD_CONFIG t2 ON t1.CONFIG_ID = T2.ID AND T2.STATUS = 'normal'
+        <if test="platform != null and platform != ''">
+            AND t2.PLATFORM = #{platform}
+        </if>
+        <if test="actionId != null and actionId != ''">
+            AND T2.ACTION_ID = #{actionId}
+        </if>
+        <if test="actionName != null and actionName != ''">
+            AND (exists(SELECT 1 FROM MEDICAL_ACTION_DICT a WHERE T2.ACTION_ID=a.ACTION_ID and ACTION_NAME=ai_encrypt(#{actionName}))
+            OR T2.ACTION_NAME = #{actionName}
+            )
+        </if>
+        LEFT JOIN MEDICAL_COL_CONFIG t3 ON t3.TAB_NAME = t.TABLE_NAME and t3.COL_NAME = T.COL_NAME
+        ORDER BY t1.CONFIG_ID,
+        t1.ORDER_NO
+    </select>
+
+    <select id="querySerColByAction" resultType="com.ai.modules.task.vo.TaskActionFieldColVO">
+        SELECT
+        t1.CONFIG_ID,
+        <!--        nvl(t1.COL_CNNAME,t.COL_CNNAME) COL_CNNAME, -->
+        ifnull(t1.COL_CNNAME,t.COL_CNNAME) COL_CNNAME,
+        t.*
+        FROM
+        TASK_ACTION_FIELD_RELA_SER t1
+        JOIN TASK_ACTION_FIELD_COL t ON t.COL_ID = t1.COL_ID
+        AND t.STATUS = 'normal'
+        JOIN TASK_ACTION_FIELD_CONFIG t2 ON t1.CONFIG_ID = T2.ID AND T2.STATUS = 'normal'
+        <if test="platform != null and platform != ''">
+            AND t2.PLATFORM = #{platform}
+        </if>
+        <if test="actionId != null and actionId != ''">
+            AND T2.ACTION_ID = #{actionId}
+        </if>
+        <if test="actionName != null and actionName != ''">
+            AND (exists(SELECT 1 FROM MEDICAL_ACTION_DICT a WHERE T2.ACTION_ID=a.ACTION_ID and ACTION_NAME=ai_encrypt(#{actionName}))
+            OR T2.ACTION_NAME = #{actionName}
+            )
+        </if>
+        ORDER BY t1.CONFIG_ID,
+        t1.ORDER_NO
+    </select>
+
+    <select id="querySerByConfigId" resultType="com.ai.modules.task.vo.TaskActionFieldColVO">
+        SELECT
+        t.*,
+        t1.COL_CNNAME EDIT_NAME
+        FROM
+        TASK_ACTION_FIELD_RELA_SER t1
+        JOIN TASK_ACTION_FIELD_COL t ON t.COL_ID = t1.COL_ID
+        AND t.STATUS = 'normal'
+        AND t1.CONFIG_ID = #{configId}
+        ORDER BY
+        t1.ORDER_NO
+    </select>
+
+    <select id="queryDelColByConfigId" resultType="com.ai.modules.task.vo.TaskActionFieldColVO">
+        SELECT
+        t.*,
+        t1.COL_CNNAME EDIT_NAME
+        FROM
+        TASK_ACTION_FIELD_RELA t1
+        JOIN TASK_ACTION_FIELD_COL t ON t.COL_ID = t1.COL_ID
+        AND t.STATUS = 'normal'
+        AND t1.CONFIG_ID = #{configId}
+        ORDER BY
+        t1.ORDER_NO
+    </select>
+</mapper>

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+    <sql id="ruleBlackList"><![CDATA[
+
+drop TABLE if EXISTS medical_gbdp.t_pre_detail_${sqlSeq};
+create table medical_gbdp.t_pre_detail_${sqlSeq} as
+(
+ --满足准入条件的项目明细
+ select visitid,orgid,orgname,substr(cast(chargedate as VARCHAR),1,10) charge,COALESCE(chargeattri,'') as chargeattri,
+ selfpay_prop,his_itemname,itemname,itemcode,
+ sum(amount) as sl, sum(fee) fy
+ from src_yb_charge_detail x where 1=1
+ and orgname ~ '${orgname}' --${NOORGID}
+ and orgid in ${orgid}
+ and itemname = '${itemname}'
+ -- and visitid ~ '${visitid}'
+ and visitid in (${visitid_in})
+ -- 不包含自费明细  --
+ and exists(select 1 from src_yb_settlement t where x.visitid=t.visitid and x.orgid=t.orgid and t.fundpay>0)
+ and visitid in(select visitid from src_yb_master_info m where 1=1
+ and m.visitdate>='${startDate}'
+ and m.visitdate<='${endDate}'
+ and m.visittype ~ '${visittype}'
+ and m.case_id ~ '${caseid}'
+ and m.leavedate>='${leaveStartDate}'
+ and m.leavedate<='${leaveEndDate}'
+ and m.clientname ~ '${clientname}'
+ and m.id_no ~ '${idNo}'
+ )
+ group by visitid,orgid,orgname,substr(cast(chargedate as VARCHAR),1,10), chargeattri,
+ selfpay_prop,his_itemname,itemname,itemcode
+) distributed by (visitid,orgid);
+
+-- 加分区加索引
+CREATE INDEX idx_tmp_detail_${sqlSeq} ON medical_gbdp.t_pre_detail_${sqlSeq}
+    using  btree  (visitid,orgid);
+
+
+drop TABLE if EXISTS medical_gbdp.t_set_detail_${sqlSeq};
+create table medical_gbdp.t_set_detail_${sqlSeq} as
+(
+ --项目明细黑名单
+ select x.* from medical_gbdp.t_pre_detail_${sqlSeq} x
+ where
+ visitid not in(select visitid from src_yb_master_info y --${limit_not_hosplevel}--
+ orgid not in(select orgid from ods_checkorg_list y --${limit_hosplevel}--
+ where ${where}
+ )
+)
+;
+
+
+drop TABLE if EXISTS medical_gbdp.t_set_diag_${sqlSeq};
+create table medical_gbdp.t_set_diag_${sqlSeq} as
+(
+  --查询疾病名称
+  select orgid,orgname,visitid,
+  string_agg(distinct case when not(diag.primarydiag_sign='1' or diag.primarydiag_sign='主诊断') then diseasename end,'_') as dis,
+  string_agg(case when diag.primarydiag_sign='1' or diag.primarydiag_sign='主诊断' then diseasename end ,'_') as dis_main
+  from src_yb_diag diag
+  where diag.visitid in(select visitid from medical_gbdp.t_set_detail_${sqlSeq})
+  GROUP BY orgid,orgname,visitid
+) distributed by (visitid,orgid);
+
+-- 加分区加索引
+CREATE INDEX idx_table_diag_${sqlSeq} ON medical_gbdp.t_set_diag_${sqlSeq} using btree (visitid,orgid);
+
+
+ --查询结果
+ drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as (
+ select x.*,
+  substr(cast(y.visitdate as VARCHAR),1,4) as yyear,y.case_id,y.doctorname,y.deptname,y.visittype,
+  concat(trim(y.clientname), substr(cast(y.birthday as VARCHAR),1,10)) as name,sex,
+  substr(cast(y.visitdate as VARCHAR),1,10) as visitdate,substr(cast(y.leavedate as VARCHAR),1,10) as leavedate,
+  extract(year from age(y.visitdate, y.birthday)) yearage,
+  diag.dis,diag.dis_main
+  from medical_gbdp.t_set_detail_${sqlSeq} x join src_yb_master_info y on x.visitid=y.visitid
+  left join medical_gbdp.t_set_diag_${sqlSeq} diag on x.visitid=diag.visitid and x.orgid=diag.orgid
+  limit ${limitCount}
+  );
+
+
+ select * from medical_gbdp.t_dc_result_${sqlSeq} t
+
+    ]]></sql>
+</mapper>

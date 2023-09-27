@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.ybFj.mapper.YbFjProjectClueCutMapper">
+
+    <insert id="insertCutClue" parameterType="com.ai.modules.ybFj.dto.SyncClueDto">
+        <choose>
+            <when test="prevStep != null and prevStep == 'onsite' ">
+                insert into
+                yb_fj_project_clue_cut(clue_id,
+                project_id,
+                project_org_id,
+                issue_type,
+                issue_subtype,
+                clue_name,
+                clue_type,
+                case_amount,
+                case_person_cnt,
+                case_fee,
+                case_fund_fee,
+                case_remark,
+                cut_amount,
+                cut_person_cnt,
+                cut_fee,
+                cut_fund_fee,
+                bx_rate,
+                sure_basis,
+                create_time,
+                create_username,
+                create_user,
+                dtl_state,
+                seq,
+                dtl_amount,
+                dtl_wg_fee)
+                select
+                clue_id,
+                project_id,
+                project_org_id,
+                issue_type,
+                issue_subtype,
+                clue_name,
+                clue_type,
+                case_amount,
+                case_person_cnt,
+                case_fee,
+                case_fund_fee,
+                case_remark,
+                cut_amount,
+                cut_person_cnt,
+                cut_fee,
+                cut_fund_fee,
+                bx_rate,
+                sure_basis,
+                #{createTime,jdbcType=TIMESTAMP},
+                #{createUsername,jdbcType=VARCHAR},
+                #{createUser,jdbcType=VARCHAR},
+                dtl_state,
+                seq,
+                dtl_amount,
+                dtl_wg_fee
+                from
+                yb_fj_project_clue_onsite
+                where
+                clue_id in
+                <foreach collection="clueIds" index="index" item="item" open="(" separator="," close=")">
+                    #{item}
+                </foreach>
+            </when>
+            <otherwise>
+                insert into
+                yb_fj_project_clue_cut(clue_id,
+                project_id,
+                project_org_id,
+                issue_type,
+                issue_subtype,
+                clue_name,
+                clue_type,
+                case_amount,
+                case_person_cnt,
+                case_fee,
+                case_fund_fee,
+                case_remark,
+                create_time,
+                create_username,
+                create_user,
+                dtl_state,
+                seq)
+                select
+                clue_id,
+                project_id,
+                project_org_id,
+                issue_type,
+                issue_subtype,
+                clue_name,
+                clue_type,
+                case_amount,
+                case_person_cnt,
+                case_fee,
+                case_fund_fee,
+                case_remark,
+                #{createTime,jdbcType=TIMESTAMP},
+                #{createUsername,jdbcType=VARCHAR},
+                #{createUser,jdbcType=VARCHAR},
+                dtl_state,
+                seq
+                from
+                yb_fj_project_clue
+                where
+                clue_id in
+                <foreach collection="clueIds" index="index" item="item" open="(" separator="," close=")">
+                    #{item}
+                </foreach>
+            </otherwise>
+        </choose>
+    </insert>
+
+    <select id="statisticsCutClue" resultType="com.ai.modules.ybFj.vo.StatOnsiteClueVo">
+        select
+            sum(case_amount) case_amount,
+            sum(case_person_cnt) case_person_cnt,
+            sum(case_fee) case_fee,
+            sum(case_fund_fee) case_fund_fee,
+            sum(cut_amount) cut_amount,
+            sum(cut_fee) cut_fee
+        from
+            yb_fj_project_clue_cut yfpco
+        where
+            project_org_id = #{projectOrgId,jdbcType=VARCHAR}
+    </select>
+
+    <select id="statisticsStepClue" resultType="com.ai.modules.ybFj.vo.StatStepClueVo">
+        select
+            ifnull(sum(case_amount),0) case_amount,
+            ifnull(sum(case_person_cnt),0) case_person_cnt,
+            ifnull(sum(case_fee),0) case_fee,
+            ifnull(sum(case_fund_fee),0) case_fund_fee,
+            count(distinct(issue_type)) issue_type_cnt,
+            count(distinct(issue_subtype)) issue_subtype_cnt,
+            count(clue_name) clue_name_cnt,
+            count(case when audit_state in('finish') then clue_name else null end) audit_clue_name_cnt
+        from
+            yb_fj_project_clue_cut
+                ${ew.customSqlSegment}
+    </select>
+</mapper>

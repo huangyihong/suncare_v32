@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.medical.mapper.MedicalDrugRuleMapper">
+    <select id="selectPageVO" resultType="com.ai.modules.medical.vo.MedicalDrugRuleVO">
+        SELECT *
+        from (
+                 SELECT t.*,
+                        t1.STATUS TRAIL_STATUS,
+                        t1.MSG TRAIL_MSG
+                 FROM MEDICAL_DRUG_RULE t
+                          left join TASK_BATCH_STEP_ITEM t1 on t1.BATCH_ID = t.RULE_ID and t1.DATA_SOURCE = #{dataSource}) t_alias
+                 ${ew.customSqlSegment}
+    </select>
+    <select id="selectListVO" resultType="com.ai.modules.medical.vo.MedicalDrugRuleVO">
+        SELECT *
+        from (
+                 SELECT t.*,
+                        t1.STATUS TRAIL_STATUS,
+                        t1.MSG TRAIL_MSG
+                 FROM MEDICAL_DRUG_RULE t
+                          left join TASK_BATCH_STEP_ITEM t1 on t1.BATCH_ID = t.RULE_ID and t1.DATA_SOURCE = #{dataSource}) t_alias
+                WHERE ${ew.sqlSegment}
+    </select>
+</mapper>

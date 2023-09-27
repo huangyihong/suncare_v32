@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.formal.mapper.MedicalFormalBehaviorMapper">
+    <select id="selectByBatchCase" parameterType="String" resultType="com.ai.modules.formal.entity.MedicalFormalBehavior">
+        SELECT t.*
+        FROM MEDICAL_FORMAL_BEHAVIOR t,
+             MEDICAL_FORMAL_CASE_BEHAVIOR t1
+        where t.BATCH_ID = #{batchId}
+          and t1.CASE_ID in
+        <foreach collection="caseIds" item="caseId" index="index" open="(" close=")" separator=",">
+            #{caseId}
+        </foreach>
+          and t.ID = t1.BEHAVIOR_ID and t.STATUS = '2'
+        ORDER BY t.ACTION_TYPE
+    </select>
+
+    <select id="selectBehaviorCaseByBatch" resultType="com.ai.modules.formal.vo.MedicalFormalBehaviorVO">
+        SELECT t.*,t1.CASE_ID
+        FROM MEDICAL_FORMAL_BEHAVIOR t,
+        MEDICAL_FORMAL_CASE_BEHAVIOR t1
+        where t.BATCH_ID = #{batchId}
+        and t.ID = t1.BEHAVIOR_ID and t.STATUS = '2'
+        ORDER BY t.ACTION_TYPE
+    </select>
+
+</mapper>

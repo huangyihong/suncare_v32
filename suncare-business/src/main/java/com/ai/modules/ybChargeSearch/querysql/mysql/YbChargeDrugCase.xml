@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+
+
+<sql id="detail_with_itemname_fee"><![CDATA[
+    select
+    t1.id,t1.drug_type,t1.drug_type_small,t1.fun_type,t1.drug_name,t1.dosage_type,t1.limit_type,t1.limit_content,
+    t1.remark,t1.sorter,t1.examine_status,
+    coalesce(sum(cast(t2.fee as signed)),0) as fee
+    from suncare_v4_form8.yb_charge_drug_rule t1
+    left join yb_chargeitem_sum t2 on t1.drug_name = t2.itemname
+    and t2.orgname in ${orgname}
+    and t2.item_month >= '${chargedateStartdate}'
+    and t2.item_month <= '${chargedateEnddate}'
+    and t2.item_type rlike '${etlSource}'
+    and t2.project = '${dataSource}'
+    and t2.item_class = '${itemClass}'
+    where 1=1
+    and t1.drug_type rlike '${drug_type}'
+    and t1.drug_type_small rlike '${drug_type_small}'
+    and t1.fun_type rlike '${fun_type}'
+    and t1.drug_name rlike '${drug_name}'
+    and t1.dosage_type rlike '${dosage_type}'
+    and t1.limit_type = '${limit_type}'
+    and t1.limit_content rlike '${limit_content}'
+    and t1.remark rlike '${remark}'
+    and t1.sorter rlike '${sorter}'
+    and t1.examine_status = '${examine_status}'
+    group by  t1.id,t1.drug_type,t1.drug_type_small,t1.fun_type,t1.drug_name,t1.dosage_type,t1.limit_type,t1.limit_content,
+    t1.remark,t1.sorter,t1.examine_status
+    order by fee desc
+    limit ${size} OFFSET ${current}
+
+]]></sql>
+
+<sql id="detail_with_itemname_fee_count"><![CDATA[
+select count(t.*) as total from (
+    select
+   t1.id,t1.drug_type,t1.drug_type_small,t1.fun_type,t1.drug_name,t1.dosage_type,t1.limit_type,t1.limit_content,
+    t1.remark,t1.sorter,t1.examine_status,
+    coalesce(sum(cast(t2.fee as signed)),0) as fee
+    from suncare_v4_form8.yb_charge_drug_rule t1
+    left join yb_chargeitem_sum t2 on t1.drug_name = t2.itemname
+    and t2.orgname in ${orgname}
+    and t2.item_month >= '${chargedateStartdate}'
+    and t2.item_month <= '${chargedateEnddate}'
+    and t2.item_type rlike '${etlSource}'
+    and t2.project = '${dataSource}'
+    where 1=1
+    and t1.drug_type rlike '${drug_type}'
+    and t1.drug_type_small rlike '${drug_type_small}'
+    and t1.fun_type rlike '${fun_type}'
+    and t1.drug_name rlike '${drug_name}'
+    and t1.dosage_type rlike '${dosage_type}'
+    and t1.limit_type = '${limit_type}'
+    and t1.limit_content rlike '${limit_content}'
+    and t1.remark rlike '${remark}'
+    and t1.sorter rlike '${sorter}'
+    and t1.examine_status = '${examine_status}'
+
+    group by  t1.id,t1.drug_type,t1.drug_type_small,t1.fun_type,t1.drug_name,t1.dosage_type,t1.limit_type,t1.limit_content,
+    t1.remark,t1.sorter,t1.examine_status
+
+) as t
+
+
+]]></sql>
+
+
+</mapper>
+
+

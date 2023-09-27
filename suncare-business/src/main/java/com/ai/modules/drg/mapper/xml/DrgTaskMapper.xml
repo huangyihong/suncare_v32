@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.drg.mapper.DrgTaskMapper">
+    <select id="selectPageVO" resultType="com.ai.modules.drg.vo.DrgTaskVo">
+        SELECT
+            t.*,(select version_name from drg_catalog where catalog_type='DRG_V' and version_code=t.drg_Catalog_V ) as drg_Catalog_V_Text
+        FROM
+            drg_task t ${ew.customSqlSegment}
+
+    </select>
+</mapper>

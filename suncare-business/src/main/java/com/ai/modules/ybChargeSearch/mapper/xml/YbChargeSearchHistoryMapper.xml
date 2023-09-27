@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.ybChargeSearch.mapper.YbChargeSearchHistoryMapper">
+
+    <select id="selectPageVO" resultType="com.ai.modules.ybChargeSearch.entity.YbChargeSearchHistory">
+        select * from (
+		select t1.*,(case when t2.id is null then '否' else '是' end) as is_rule
+		from (
+		SELECT max(t1.id) as id,t1.itemname,t1.itemname1,t1.item1_type,t1.item1_wgtype,t1.qty_type,t1.qty_num,t1.is_same_day,sum(t1.total_fee) as total_fee,
+        group_concat(distinct CONCAT(IFNULL(t1.orgs,'空'),'(',t1.record_count,')')) as orgs,count(t1.id) as query_count
+        FROM yb_charge_search_history t1
+        where t1.orgs is not null
+        group by itemname,itemname1,item1_type,item1_wgtype,qty_type,qty_num,is_same_day
+		) t1
+		left join yb_chargeitem_checklist t2 on t1.itemname =t2.itemname and t1.itemname1=t2.itemname1 and t2.examine_status='1'
+		order by t1.total_fee desc
+        ) t ${ew.customSqlSegment}
+    </select>
+
+    <select id="selectListVO" resultType="com.ai.modules.ybChargeSearch.entity.YbChargeSearchHistory">
+        select * from (
+        SELECT max(id) as id,itemname,itemname1,item1_type,item1_wgtype,qty_type,qty_num,is_same_day,sum(total_fee) as total_fee,
+        group_concat(distinct CONCAT(IFNULL(orgs,'空'),'(',record_count,')')) as orgs
+        FROM yb_charge_search_history where orgs is not null
+        group by itemname,itemname1,item1_type,item1_wgtype,qty_type,qty_num,is_same_day
+        order by total_fee desc
+        ) t
+        <if test="ew != null">
+            <if test="ew.nonEmptyOfWhere">
+                WHERE
+            </if>
+            ${ew.sqlSegment}
+        </if>
+    </select>
+
+
+
+</mapper>

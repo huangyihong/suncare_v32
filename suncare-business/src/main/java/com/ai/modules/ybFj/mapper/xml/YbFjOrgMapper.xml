@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.ybFj.mapper.YbFjOrgMapper">
+
+    <select id="getOrgUser" resultType="com.ai.modules.ybFj.vo.OrgUserVo">
+        SELECT t1.ID,t1.USERNAME,t1.REALNAME,t3.ORG_NAME
+        FROM sys_user t1
+        left join yb_fj_user_org t2 on t1.id = t2.user_id
+        left join yb_fj_org t3 on t3.org_id = t2.org_id
+        <where>
+            t1.STATUS='1'
+            and (t2.org_id != #{query.orgId} or t2.org_id is null)
+            and (t1.SYSTEM_CODE is null
+            <if test="query.systemCode != '' and query.systemCode != null ">
+                or t1.SYSTEM_CODE = #{query.systemCode}
+            </if>
+            or t1.SYSTEM_CODE = 'insight'
+            or t1.SYSTEM_CODE =''
+            )
+            <if test="query.username != '' and query.username != null ">
+                and t1.username = #{query.username}
+            </if>
+            <if test="query.realname != '' and query.realname != null">
+                and t1.realname = #{query.realname}
+            </if>
+            <if test="query.leftWord != '' and query.leftWord != null">
+                and (t1.username like '%${query.leftWord}%' or t1.realname like '%${query.leftWord}%')
+
+            </if>
+
+        </where>
+    </select>
+    <select id="getUserOrgList" resultType="com.ai.modules.ybFj.vo.OrgUserVo">
+        SELECT t2.ID,t2.USERNAME,t2.REALNAME,t3.ORG_NAME
+        FROM yb_fj_user_org t1
+        inner join sys_user t2 on t1.user_id = t2.id
+        left join yb_fj_org t3 on t3.org_id = t1.org_id
+        <where>
+            t1.org_id = #{query.orgId}
+            and (t2.SYSTEM_CODE is null
+            <if test="query.systemCode != '' and query.systemCode != null ">
+                or t2.SYSTEM_CODE = #{query.systemCode}
+            </if>
+            or t2.SYSTEM_CODE = 'insight'
+            or t2.SYSTEM_CODE =''
+            )
+            <if test="query.username != '' and query.username != null ">
+                and t2.username = #{query.username}
+            </if>
+            <if test="query.realname != '' and query.realname != null">
+                and t2.realname = #{query.realname}
+            </if>
+            <if test="query.rightWord != '' and query.rightWord != null">
+                and (t2.username like '%${query.rightWord}%' or t2.realname like '%${query.rightWord}%')
+
+            </if>
+
+        </where>
+    </select>
+</mapper>

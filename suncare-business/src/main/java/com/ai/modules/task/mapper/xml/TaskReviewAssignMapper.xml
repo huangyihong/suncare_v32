@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.task.mapper.TaskReviewAssignMapper">
+    <select id="listJoinUserInfo" resultType="com.ai.modules.task.vo.TaskReviewAssignVO">
+        SELECT t.*,
+               t1.AVATAR,
+               t1.REALNAME MEMBER_NAME
+            <if test="ruleType != null and ruleType != ''">
+                ,(SELECT count(*)
+                FROM TASK_BATCH_BREAK_RULE_DEL t2
+                where t2.BATCH_ID = #{batchId}
+                  and t2.RULE_TYPE = #{ruleType}
+                  and t2.REVIEW_USERID = T.MEMBER) RULE_COUNT
+                ,(SELECT count(*)
+                FROM TASK_BATCH_BREAK_RULE_DEL t2
+                where t2.BATCH_ID = #{batchId}
+                and t2.RULE_TYPE = #{ruleType}
+                and t2.REVIEW_STATUS = 'audited'
+                and t2.REVIEW_USERID = T.MEMBER) RULE_COUNT_AUDITED
+            </if>
+        FROM TASK_REVIEW_ASSIGN t
+                 JOIN SYS_USER t1 ON t.MEMBER = t1.ID
+        WHERE t.BATCH_ID = #{batchId}
+          and t.LEADER = #{leader}
+          and t.STEP = #{step}
+    </select>
+
+    <select id="ruleResultInfo" resultType="com.ai.modules.task.vo.TaskReviewRuleTotalVO">
+        SELECT count(*) CASE_COUNT, sum(t.RECORD_NUM) RECORD_NUM
+        FROM TASK_BATCH_BREAK_RULE_DEL t
+        where t.BATCH_ID = #{batchId}
+          and t.RULE_TYPE = #{ruleType}
+
+        Union All
+
+        SELECT count(*) CASE_COUNT, sum(t.RECORD_NUM) RECORD_NUM
+        FROM TASK_BATCH_BREAK_RULE_DEL t
+        where t.BATCH_ID = #{batchId}
+          and t.RULE_TYPE = #{ruleType} and t.REVIEW_STATUS = 'audited'
+    </select>
+</mapper>

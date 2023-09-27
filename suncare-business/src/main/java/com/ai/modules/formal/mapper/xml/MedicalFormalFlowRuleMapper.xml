@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.formal.mapper.MedicalFormalFlowRuleMapper">
+	<resultMap id="EngineNodeRule" type="com.ai.modules.engine.model.EngineNodeRule" >
+		<result column="NODE_CODE" property="nodeCode" jdbcType="VARCHAR"/>
+		<result column="GROUP_NO" property="groupNo" jdbcType="VARCHAR"/>
+		<result column="LOGIC" property="logic" jdbcType="VARCHAR"/>
+		<result column="TABLE_NAME" property="tableName" jdbcType="VARCHAR"/>
+		<result column="COL_NAME" property="colName" jdbcType="VARCHAR"/>
+		<result column="COMPARE_TYPE" property="compareType" jdbcType="VARCHAR"/>
+		<result column="COMPARE_VALUE" property="compareValue" jdbcType="VARCHAR"/>
+		<result column="ORDER_NO" property="orderNo" jdbcType="INTEGER"/>
+		<association property="colConfig" javaType="com.ai.modules.config.entity.MedicalColConfig">
+			<result column="COL_TYPE" property="colType" jdbcType="INTEGER"/>
+			<result column="tab_name" property="tabName" jdbcType="VARCHAR"/>
+			<result column="col_value_expression" property="colValueExpression" jdbcType="VARCHAR"/>
+			<result column="is_where_col" property="isWhereCol" jdbcType="INTEGER"/>
+			<result column="is_groupby_col" property="isGroupbyCol" jdbcType="INTEGER"/>
+			<result column="where_input_type" property="whereInputType" jdbcType="INTEGER"/>
+			<result column="select_type" property="selectType" jdbcType="VARCHAR"/>
+			<result column="data_type" property="dataType" jdbcType="VARCHAR"/>
+			<result column="format" property="format" jdbcType="VARCHAR"/>
+			<result column="col_value_expression_solr" property="colValueExpressionSolr" jdbcType="VARCHAR"/>
+			<result column="col_value_expression2_solr" property="colValueExpression2Solr" jdbcType="VARCHAR"/>
+			<result column="col_value_type" property="colValueType" jdbcType="VARCHAR"/>
+			<result column="id" property="id" jdbcType="VARCHAR"/>
+		</association>		
+	</resultMap>
+	
+	<select id="queryMedicalFormalFlowRuleByCaseid" parameterType="String" resultMap="EngineNodeRule">
+		SELECT a.RULE_ID,
+       a.NODE_CODE,
+       a.GROUP_NO,
+       a.LOGIC,
+       a.TABLE_NAME,
+       a.COL_NAME,
+       a.COMPARE_TYPE,
+       a.COMPARE_VALUE,
+       a.ORDER_NO,
+       b.tab_name,
+       b.col_value_expression,
+       b.is_where_col,
+       b.is_groupby_col,
+       b.where_input_type,
+       b.select_type,
+       b.data_type,
+       b.format,
+       b.col_value_expression_solr,
+       b.col_value_expression2_solr,
+       b.col_value_type,
+       b.COL_TYPE,
+       b.id
+  from medical_formal_flow_rule a
+  left join medical_col_config b
+    on a.TABLE_NAME = b.TAB_NAME
+   and a.COL_NAME = b.COL_NAME
+		WHERE CASE_ID = #{caseId, jdbcType=VARCHAR}
+    </select>
+    
+    <select id="queryMedicalProbeFlowRuleByCaseid" parameterType="String" resultMap="EngineNodeRule">
+		SELECT a.RULE_ID,
+       a.NODE_CODE,
+       a.GROUP_NO,
+       a.LOGIC,
+       a.TABLE_NAME,
+       a.COL_NAME,
+       a.COMPARE_TYPE,
+       a.COMPARE_VALUE,
+       a.ORDER_NO,
+       b.tab_name,
+       b.col_value_expression,
+       b.is_where_col,
+       b.is_groupby_col,
+       b.where_input_type,
+       b.select_type,
+       b.data_type,
+       b.format,
+       b.col_value_expression_solr,
+       b.col_value_expression2_solr,
+       b.col_value_type,
+       b.COL_TYPE,
+       b.id
+  from medical_probe_flow_rule a
+  left join medical_col_config b
+    on a.TABLE_NAME = b.TAB_NAME
+   and a.COL_NAME = b.COL_NAME
+		WHERE CASE_ID = #{caseId, jdbcType=VARCHAR}
+    </select>
+</mapper>

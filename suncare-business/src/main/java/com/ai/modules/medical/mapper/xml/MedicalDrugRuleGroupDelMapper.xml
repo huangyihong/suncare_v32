@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.medical.mapper.MedicalDrugRuleGroupDelMapper">
+    <select id="getMapByKinds" resultType="com.ai.modules.medical.vo.MedicalDrugRuleGroupDelVO">
+        select t.*,t1.kind
+        from MEDICAL_DRUG_RULE_GROUP_DEL t,MEDICAL_DRUG_RULE_GROUP t1 where t.GROUP_ID = t1.ID
+        and t1.kind in
+        <foreach collection="array" item="kind" index="index" open="(" close=")" separator=",">
+            #{kind}
+        </foreach>
+        order by t1.kind asc,t.code asc
+    </select>
+
+    <select id="listBySelfAndGroup" resultType="com.ai.modules.medical.vo.MedicalDrugRuleGroupDelVO">
+        select t.*,t1.KIND,t1.GROUP_TYPE
+        from MEDICAL_DRUG_RULE_GROUP_DEL t, MEDICAL_DRUG_RULE_GROUP t1  where t.GROUP_ID = t1.ID
+        <if test="del.groupId!=null and del.groupId!=''">
+            and t.GROUP_ID = #{del.groupId}
+        </if>
+        <if test="del.code!=null and del.code!=''">
+            and t.CODE = #{del.code}
+        </if>
+        <if test="group.groupType!=null and group.groupType!=''">
+            <choose>
+                <when test="group.groupType.indexOf(',') == -1">
+                    and t1.GROUP_TYPE = #{group.groupType}
+                </when>
+                <otherwise>
+                    and t1.GROUP_TYPE in
+                    <foreach collection="group.groupType.split(',')" item="typeItem" index="index" open="(" close=")" separator=",">
+                        #{typeItem}
+                    </foreach>
+                </otherwise>
+            </choose>
+        </if>
+        <if test="group.groupName!=null and group.groupName!=''">
+            and t1.GROUP_NAME = #{group.groupName}
+        </if>
+        <if test="group.kind!=null and group.kind!=''">
+            and t1.KIND = #{group.kind}
+        </if>
+        order by t1.KIND asc,t.CODE asc
+    </select>
+</mapper>

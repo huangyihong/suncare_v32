@@ -1,0 +1,445 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 产生医保明细查询,该语句分为3部分： detail + master + final -->
+<mapper>
+<!-- 清单查询 项目名称A为空,但是就诊ID 、患者姓名、病案号、离院日期这4个条件只要一个不为空，则输出最原始的清单 -->
+<sql id="detail_no_itemname_with_originlist"><![CDATA[
+-- 明细查询，项目名称查询条件为空，不加收费日期分组条件
+-- 定义住院明细
+with zy_detail_set as(
+  select orgid,orgname,t.his_zy_id  as visitid,substr(t.chargedate,1,10) as charge,his_itemname,itemname,itemcode,
+  nvl(chargeattri,'') as chargeattri,  amount as sl, fee as fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,'' as biaozhi, itemprice
+  from src_his_zy_charge_detail t where 1=1
+  and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.his_zy_id rlike '${visitid}'
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_zy_settlement t1 where t.his_zy_id=t1.his_zy_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+ --${ODS} ,itemname_src,his_itemname_src
+)
+-- 定义门诊查询数据集
+, mz_detail_set as(
+  select orgid,orgname,t.his_mz_id  as visitid,substr(t.chargedate,1,10) as charge,his_itemname,itemname,itemcode,
+  nvl(chargeattri,'') as chargeattri, amount as sl, fee as fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,'' as biaozhi, itemprice
+  from src_his_mz_charge_detail t where 1=1
+  and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.his_mz_id rlike '${visitid}'
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_mz_settlement t1 where t.his_mz_id=t1.his_mz_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+ --${ODS} ,itemname_src,his_itemname_src
+  having sum(amount)>=${itemcount}
+)
+]]></sql>
+
+<!-- 明细部分查询, 不包含项目名称的查询 -->
+<sql id="detail_no_itemname"><![CDATA[
+-- 明细查询，项目名称查询条件为空，不加收费日期分组条件
+-- 定义住院明细
+with zy_detail_set as(
+  select orgid,orgname,t.his_zy_id  as visitid,'' as charge,his_itemname,itemname,itemcode,
+  nvl(chargeattri,'') as chargeattri,  sum(amount) as sl,sum(fee) fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,'' as biaozhi
+  from src_his_zy_charge_detail t where 1=1
+  and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.his_zy_id rlike '${visitid}'
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_zy_settlement t1 where t.his_zy_id=t1.his_zy_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  group by t.his_zy_id,orgid,orgname, chargeattri,his_itemname,itemname,itemcode
+ --${ODS} ,itemname_src,his_itemname_src
+  having sum(amount)>=${itemcount}
+)
+-- 定义门诊查询数据集
+, mz_detail_set as(
+  select orgid,orgname,t.his_mz_id  as visitid,'' as charge,his_itemname,itemname,itemcode,
+  nvl(chargeattri,'') as chargeattri, sum(amount) as sl,sum(fee) fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,'' as biaozhi
+  from src_his_mz_charge_detail t where 1=1
+  and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.his_mz_id rlike '${visitid}'
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_mz_settlement t1 where t.his_mz_id=t1.his_mz_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  group by t.his_mz_id,orgid,orgname, chargeattri,his_itemname,itemname,itemcode
+ --${ODS} ,itemname_src,his_itemname_src
+  having sum(amount)>=${itemcount}
+)
+]]></sql>
+
+
+<!-- 明细部分查询, 包含1个项目名称的查询，按收费日期chargedate按天汇总输出 -->
+<sql id="detail_with_one_itemname"><![CDATA[
+-- 明细查询，只有1个项目名称查询条件，分组条件中包含收费日期
+-- 定义住院查询数据集
+with zy_detail_set as(
+  select orgid,orgname,t.his_zy_id  as visitid,substr(t.chargedate,1,10) as charge,his_itemname,
+  itemname,itemcode,nvl(chargeattri,'') as chargeattri,sum(amount) as sl,sum(fee) fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,'' as biaozhi
+  from src_his_zy_charge_detail t where 1=1
+  --${SRC} and itemname rlike '${itemname}'
+  --${SRC} and his_itemname rlike '${his_itemname}'
+  --${ODS} and itemname_src rlike '${itemname}'
+  --${ODS} and his_itemname_src rlike '${his_itemname}'
+  and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.his_zy_id rlike '${visitid}'
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_zy_settlement t1 where t.his_zy_id=t1.his_zy_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  group by t.his_zy_id,orgid,orgname, substr(t.chargedate,1,10),chargeattri,his_itemname,itemname,itemcode
+  --${ODS} ,itemname_src,his_itemname_src
+  having sum(amount)>=${itemcount}
+)
+-- 定义门诊查询明细数据集
+, mz_detail_set as(
+  select orgid,orgname,t.his_mz_id  as visitid,substr(t.chargedate,1,10) as charge,his_itemname,itemname,itemcode,
+  nvl(chargeattri,'') as chargeattri,sum(amount) as sl,sum(fee) fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,'' as biaozhi
+  from src_his_mz_charge_detail t where 1=1
+  --${SRC} and itemname rlike '${itemname}'
+  --${SRC} and his_itemname rlike '${his_itemname}'
+  --${ODS} and itemname_src rlike '${itemname}'
+  --${ODS} and his_itemname_src rlike '${his_itemname}'
+  and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.his_mz_id rlike '${visitid}'
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_mz_settlement t1 where t.his_mz_id=t1.his_mz_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  group by t.his_mz_id,orgid,orgname, substr(t.chargedate,1,10),chargeattri,his_itemname,itemname,itemcode
+  --${ODS} ,itemname_src,his_itemname_src
+  having sum(amount)>=${itemcount}
+)
+]]></sql>
+
+
+<!-- 明细部分查询, 包含2个项目名称的查询，按收费日期chargedate按天汇总输出 -->
+<sql id="detail_with_two_itemname"><![CDATA[
+--明细查询，2个项目名称查询条件，分组条件中包含收费日期
+--先定义住院包含这两个项目名称的数据
+with zy_detail_set_presearch as(
+  select orgid,orgname,t.his_zy_id  as visitid,substr(t.chargedate,1,10) as charge,his_itemname,itemname,itemcode,
+  nvl(chargeattri,'') as chargeattri,sum(amount) as sl,sum(fee) fy
+  --${ODS} ,itemname_src,his_itemname_src
+  from src_his_zy_charge_detail t where 1=1
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  --${SRC} and itemname rlike '${itemname_all}'
+  --${SRC} and his_itemname rlike '${his_itemname_all}'
+  --${ODS} and itemname_src rlike '${itemname_all}'
+  --${ODS} and his_itemname_src rlike '${his_itemname_all}'
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_zy_settlement t1 where t.his_zy_id=t1.his_zy_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  and t.his_zy_id rlike '${visitid}'
+  group by t.his_zy_id,orgid,orgname, substr(t.chargedate,1,10),chargeattri,his_itemname,itemname,itemcode
+  --${ODS} ,itemname_src,his_itemname_src
+)
+-- 定义住院满足的第一个项目名称的数据集
+, zy_detail_set_1 as (
+  select * from zy_detail_set_presearch where 1=1
+  --${SRC} and itemname rlike '${itemname}'
+  --${SRC} and his_itemname rlike '${his_itemname}'
+  --${ODS} and itemname_src rlike '${itemname}'
+  --${ODS} and his_itemname_src rlike '${his_itemname}'
+  and sl>=${itemcount}
+)
+-- 定义住院满足的第二个项目名称的数据集
+, zy_detail_set_2 as (
+  select * from zy_detail_set_presearch where 1=1
+  --${SRC} and itemname rlike '${itemname1}'
+  --${SRC} and his_itemname rlike '${his_itemname1}'
+  --${ODS} and itemname_src rlike '${itemname1}'
+  --${ODS} and his_itemname_src rlike '${his_itemname1}'
+)
+-- 定义住院最终结果集
+, zy_detail_set as (
+  -- 从第一种条件中查询出满足第二种条件的数据 + 从第二种条件查询出满足第一种条件的数据
+  --${NOTHAVEB} select t1.*,'不违规' as biaozhi from zy_detail_set_1 t1 where
+  --${HAVEB} select t1.*,'' as biaozhi  from zy_detail_set_1 t1 where
+  exists
+  (select 1 from zy_detail_set_2 t2 where t1.visitid=t2.visitid and t1.orgid=t2.orgid
+  --${ONE_DAY}and t1.charge=t2.charge
+  )
+
+  --${NOTHAVEB} union select t2.*,'不违规' as biaozhi  from zy_detail_set_2 t2 where
+  --${HAVEB} union select t2.*,'' as biaozhi  from zy_detail_set_2 t2 where
+  exists
+  (select 1 from zy_detail_set_1 t1 where t1.visitid=t2.visitid and t1.orgid=t2.orgid
+  --${ONE_DAY}and t1.charge=t2.charge
+  )
+
+  --${NOTHAVEB} union select t1.*,'涉嫌违规' as biaozhi from zy_detail_set_1 t1 where
+  --${NOTHAVEB} not exists
+  --${NOTHAVEB} (select 1 from zy_detail_set_2 t2 where t1.visitid=t2.visitid and t1.orgid=t2.orgid
+  --${NOTHAVEB} --${ONE_DAY}and t1.charge=t2.charge
+  --${NOTHAVEB} )
+)
+-- 先定义门诊包含这两个项目名称的数据
+, mz_detail_set_presearch as(
+  select orgid,orgname,t.his_mz_id  as visitid,substr(t.chargedate,1,10) as charge,his_itemname,itemname,itemcode,
+  nvl(chargeattri,'') as chargeattri,sum(amount) as sl,sum(fee) fy
+  --${ODS} ,itemname_src,his_itemname_src
+  from src_his_mz_charge_detail t where 1=1
+  --${SRC} and itemname rlike '${itemname_all}'
+  --${SRC} and his_itemname rlike '${his_itemname_all}'
+  --${ODS} and itemname_src rlike '${itemname_all}'
+  --${ODS} and his_itemname_src rlike '${his_itemname_all}'
+  and orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_mz_settlement t1 where t.his_mz_id=t1.his_mz_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  and t.his_mz_id rlike '${visitid}'
+  group by t.his_mz_id,orgid,orgname, substr(t.chargedate,1,10),chargeattri,his_itemname,itemname,itemcode
+  --${ODS} ,itemname_src,his_itemname_src
+)
+-- 定义门诊满足的第一种项目名称
+, mz_detail_set_1 as (
+  select * from mz_detail_set_presearch where 1=1
+  --${SRC} and itemname rlike '${itemname}'
+  --${SRC} and his_itemname rlike '${his_itemname}'
+  --${ODS} and itemname_src rlike '${itemname}'
+  --${ODS} and his_itemname_src rlike '${his_itemname}'
+  and sl>=${itemcount}
+)
+-- 定义门诊第1行满足的第二个项目名称
+, mz_detail_set_2 as (
+  select * from mz_detail_set_presearch where 1=1
+  --${SRC} and itemname rlike '${itemname1}'
+  --${SRC} and his_itemname rlike '${his_itemname1}'
+  --${ODS} and itemname_src rlike '${itemname1}'
+  --${ODS} and his_itemname_src rlike '${his_itemname1}'
+)
+-- 定义最终结果集
+, mz_detail_set as(
+  --${NOTHAVEB} select t1.*,'不违规' as biaozhi from mz_detail_set_1 t1 where
+  --${HAVEB} select t1.*,'' as biaozhi  from mz_detail_set_1 t1 where
+  exists
+  (select 1 from mz_detail_set_2 t2 where t1.visitid=t2.visitid and t1.orgid=t2.orgid
+  --${ONE_DAY}and t1.charge=t2.charge
+  )
+
+  --${NOTHAVEB} union select t2.*,'不违规' as biaozhi from mz_detail_set_2 t2 where
+  --${HAVEB} union select t2.*,'' as biaozhi from mz_detail_set_2 t2 where
+  exists
+  (select 1 from mz_detail_set_1 t1 where t1.visitid=t2.visitid and t1.orgid=t2.orgid
+  --${ONE_DAY}and t1.charge=t2.charge
+  )
+
+  --${NOTHAVEB} union select t1.*,'涉嫌违规' as biaozhi from mz_detail_set_1 t1 where
+  --${NOTHAVEB} not exists
+  --${NOTHAVEB} (select 1 from mz_detail_set_2 t2 where t1.visitid=t2.visitid and t1.orgid=t2.orgid
+  --${NOTHAVEB} --${ONE_DAY}and t1.charge=t2.charge
+  --${NOTHAVEB} )
+)
+]]></sql>
+
+<!-- 最终结果集 -->
+<sql id="finalQuery"><![CDATA[
+-- 定义住院 diag表获取诊断
+,diag_zy_set as (
+  SELECT orgid,orgname,his_visitid as visitid ,
+  group_concat(distinct case when not( t.primarydiag_sign='1' or t.primarydiag_sign='主诊断') then diseasename end,'_') as dis,
+  group_concat( case when t.primarydiag_sign='1' or t.primarydiag_sign='主诊断' then diseasename end ,'_')as dis_main
+  --${ODS} ,group_concat( diseasename_src,'_') as dis_src
+  --${SRC} ,'' as dis_src
+  from src_his_zy_diag t
+  where t.orgName rlike '${orgname}'
+  and t.orgid in (${orgid})
+  GROUP BY orgid,orgname,his_visitid
+)
+-- 定义住院master主表查询数据集
+, master_zy_query as (
+  select substr(admitdate,1,4) as yyear,t.orgid,t.orgname, his_zy_id  as visitid,case_id,doctorname,
+  admit_deptname as deptname,if(visittype is null or visittype='' ,'住院' ,visittype) as visittype,concat(trim(clientname),
+  substr(birthday,1,10)) as name,sex,substr(admitdate,1,10) as visitdate,substr(leavedate,1,10) as leavedate,
+  nvl(floor(months_between(substr(admitdate,1,10),substr(birthday,1,10)))/12,yearage) as yearage,
+  t1.dis as dis,t1.dis_main as dis_main,dis_src
+  --${VISIT_ITEM_QRY} ,datediff(t.leavedate,t.admitdate) as visitdays
+  from src_his_zy_master_info t left join diag_zy_set t1
+  on t.his_zy_id=t1.visitid and t.orgid=t1.orgid  where 1=1
+  and t.orgName rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.his_zy_id rlike '${visitid}'
+  and case_id rlike '${case_id}'
+  and concat(trim(t.clientname),substr(t.birthday,1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+)
+
+-- 住院按就诊统计的次数
+, one_visit_item_sum_zy as(
+ select orgid,orgname,t.his_zy_id as visitid,his_itemname,itemname,nvl(chargeattri,'') as chargeattri
+ ,sum(amount) as one_visit_count
+ from src_his_zy_charge_detail t where 1=1
+ and t.orgname rlike '${orgname}'
+ and t.orgid in (${orgid})
+ and t.his_zy_id rlike '${visitid}'
+ -- 不包含自费明细  ${fundpayonly}
+ and exists(select 1 from src_his_zy_settlement  t1 where t.his_zy_id=t1.his_zy_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+ and chargedate>='${dateStart}'
+ and chargedate<='${dateEnd}'
+ group by t.his_zy_id,orgid,orgname, his_itemname,itemname,chargeattri
+)
+-- 增加住院就诊次数限制的明细
+, zy_detail_set_with_count_limit as(
+  --${VISIT_ITEM_QRY} select t.* ,t1.one_visit_count from zy_detail_set t inner join one_visit_item_sum_zy t1
+  --${VISIT_ITEM_QRY} on t.visitid=t1.visitid and t.orgid=t1.orgid and t.itemname=t1.itemname
+  --${VISIT_ITEM_QRY} and t.his_itemname=t1.his_itemname and t.chargeattri=t1.chargeattri
+  --${VISIT_ITEM_QRY} where t1.one_visit_count>=${vistidQty}
+
+  --${NO_VISIT_ITEM_QRY} select t.* ,0 as one_visit_count from zy_detail_set t
+)
+
+-- 查询所有的住院手术
+, zy_operate_all_set as (
+  select orgid,orgname,t.his_zy_id as visitid,substr(t.chargedate,1,10) as charge,his_itemname,itemname,itemcode,
+  nvl(chargeattri,'') as chargeattri, sum(amount) as sl,sum(fee) fy
+  ,'' as biaozhi,1000 as one_visit_count
+  --${ODS} ,itemname_src,his_itemname_src
+  from src_his_zy_charge_detail t where t.itemname rlike '.*术$' and t.itemprice>=600
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.his_zy_id rlike '${visitid}'
+  -- 不包含自费明细  ${fundpayonly}
+  and exists(select 1 from src_his_zy_settlement  t1 where t.his_zy_id=t1.his_zy_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and chargedate>='${dateStart}'
+  and chargedate<='${dateEnd}'
+  --${SRC} and itemname not rlike '${itemname}'
+  --${SRC} and his_itemname not rlike '${his_itemname}'
+  --${ODS} and itemname_src not rlike '${itemname}'
+  --${ODS} and his_itemname_src not rlike '${his_itemname}'
+  --${SRC} and itemname not rlike '${itemname1}'
+  --${SRC} and his_itemname not rlike '${his_itemname1}'
+  --${ODS} and itemname_src not rlike '${itemname1}'
+  --${ODS} and his_itemname_src not rlike '${his_itemname1}'
+  group by t.his_zy_id,orgid,orgname,substr(t.chargedate,1,10), chargeattri,his_itemname,itemname,itemcode
+  --${ODS} ,itemname_src,his_itemname_src
+)
+-- 查询符合条件的住院
+, zy_operate_final_set as (
+   --${OPERTE_QRY} select t.*  from zy_operate_all_set t  inner join zy_detail_set_with_count_limit t1
+   --${OPERTE_QRY} on t.visitid=t1.visitid and t.orgid=t1.orgid and t.charge=t1.charge
+   --${OPERTE_QRY} union select * from zy_detail_set_with_count_limit
+
+   --${NO_OPERTE_QRY} select * from zy_detail_set_with_count_limit
+)
+
+-- 住院查询最终结果
+, zy_final_set as (
+  select t1.*,charge,his_itemname,itemname,itemcode,chargeattri,sl,fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,biaozhi
+  --${no_itemname_with_originlist},itemprice -- 只有指定就诊号 姓名 住院号 出院日期时，并且项目名称为空时才有此字段
+  from zy_operate_final_set t
+  inner join master_zy_query t1
+  on t.visitid=t1.visitid and t.orgid=t1.orgid
+  where one_visit_count>=t1.visitdays+${inhosQty} and t1.visitdays>0
+  where one_visit_count>=t1.visitdays*24+${inhos24_qty} and t1.visitdays>0
+)
+
+
+-- 定义门诊 diag表获取诊断
+, diag_mz_set as (
+  SELECT orgid,orgname,his_mz_id as visitid ,
+  group_concat(distinct case when not( t.primarydiag_sign='1' or t.primarydiag_sign='主诊断') then diseasename end,'_') as dis,
+  group_concat( case when t.primarydiag_sign='1' or t.primarydiag_sign='主诊断' then diseasename end ,'_')as dis_main
+  --${ODS} ,group_concat( diseasename_src,'_') as dis_src
+  --${SRC} ,'' as dis_src
+  from src_his_mz_diag t
+  where 1=1
+  and t.orgName rlike '${orgname}'
+  and t.orgid in (${orgid})
+  GROUP BY orgid,orgname,his_mz_id
+ )
+
+-- 定义门诊master主表查询数据集
+, master_mz_query as (
+  select substr(visitdate,1,4) as yyear,t.orgid,t.orgname, his_mz_id  as visitid,'' as case_id,doctorname,
+  deptname,if(visittype is null or visittype='' ,'门诊' ,visittype) as visittype,concat(trim(clientname),
+  substr(birthday,1,10)) as name,sex,substr(visitdate,1,10) as visitdate,substr(visitdate,1,10) as leavedate,
+  nvl(floor(months_between(substr(visitdate,1,10),substr(birthday,1,10)))/12,yearage) as yearage,
+  t1.dis as dis ,t1.dis_main as dis_main,dis_src
+  --${VISIT_ITEM_QRY} ,0 as visitdays
+  from src_his_mz_master_info t left join diag_mz_set t1
+  on t.his_mz_id=t1.visitid and t.orgid=t1.orgid  where 1=1
+  and t.orgName rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.his_mz_id rlike '${visitid}'
+  and '1'='${case_id}'
+  and concat(trim(t.clientname),substr(t.birthday,1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and visitdate>='${leaveDateStart}'
+  and visitdate<='${leaveDateEnd}'
+)
+
+
+-- 门诊按就诊统计的次数
+, one_visit_item_sum_mz as(
+ select orgid,orgname,t.his_mz_id as visitid,his_itemname,itemname,nvl(chargeattri,'') as chargeattri
+ ,sum(amount) as one_visit_count
+ from src_his_mz_charge_detail t where 1=1
+ and t.orgname rlike '${orgname}'
+ and t.orgid in (${orgid})
+ and t.his_mz_id rlike '${visitid}'
+ -- 不包含自费明细  ${fundpayonly}
+ and exists(select 1 from src_his_mz_settlement t1 where t.his_mz_id=t1.his_mz_id and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+ and chargedate>='${dateStart}'
+ and chargedate<='${dateEnd}'
+ group by t.his_mz_id,orgid,orgname, his_itemname,itemname,chargeattri
+)
+-- 增加门诊就诊次数限制的明细
+, mz_detail_set_with_count_limit as(
+  --${VISIT_ITEM_QRY}  select t.* ,t1.one_visit_count from mz_detail_set t inner join one_visit_item_sum_mz t1
+  --${VISIT_ITEM_QRY}  on t.visitid=t1.visitid and t.orgid=t1.orgid and t.itemname=t1.itemname
+  --${VISIT_ITEM_QRY}  and t.his_itemname=t1.his_itemname and t.chargeattri=t1.chargeattri
+  --${VISIT_ITEM_QRY}  where t1.one_visit_count>=${vistidQty}
+
+  --${NO_VISIT_ITEM_QRY} select t.* ,0 as one_visit_count from mz_detail_set t
+)
+-- 门诊查询的最终结果
+, mz_final_set as (
+  select t1.*,charge,his_itemname,itemname,itemcode,chargeattri,sl,fy
+  --${ODS} ,itemname_src,his_itemname_src
+  ,biaozhi
+  --${no_itemname_with_originlist},itemprice -- 只有指定就诊号 姓名 住院号 出院日期时，并且项目名称为空时才有此字段
+  from  mz_detail_set_with_count_limit t
+  inner join master_mz_query t1
+  on t.visitid=t1.visitid and t.orgid=t1.orgid
+  where 0=${inhosQty} --如果有住院天数，则不查门诊
+  where 0=${inhos24_qty} --如果有住院天数，则不查门诊
+)
+
+
+-- 最终结果查询
+select * from
+  (select * from zy_final_set union all select * from mz_final_set ) t   --${ZY+MM}
+  zy_final_set t   --${ZY}
+  mz_final_set t   --${MM}
+  order by visitid,charge
+]]></sql>
+</mapper>
+
+

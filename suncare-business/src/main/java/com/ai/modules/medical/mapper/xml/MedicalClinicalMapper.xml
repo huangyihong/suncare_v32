@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.medical.mapper.MedicalClinicalMapper">
+
+    <select id="listWholeInfo" resultType="com.ai.modules.medical.vo.MedicalClinicalIOVO">
+        SELECT t.*,t1.* from MEDICAL_CLINICAL t left join MEDICAL_CLINICAL_INFO t1 ON t.CLINICAL_ID = t1.CLINICAL_ID
+        <if test="ew.emptyOfWhere == false">
+            WHERE ${ew.sqlSegment}
+        </if>
+        ORDER BY t.ORDER_NO,t.CREATE_TIME DESC
+    </select>
+
+    <select id="queryIdByCode" resultMap="com.ai.modules.config.vo.mybatis-plus_MedicalCodeNameVO">
+            select CLINICAL_ID ID,CLINICAL_CODE CODE FROM  MEDICAL_CLINICAL WHERE CLINICAL_CODE IN
+        <foreach collection="codes" item="code" index="index" open="(" close=")" separator=",">
+            #{code}
+        </foreach>
+    </select>
+
+    <select id="queryGroupCodeIdByCodes" resultMap="com.ai.modules.config.vo.mybatis-plus_MedicalCodeNameVO">
+--         select t.code code,nvl(t1.GROUP_ID,'') id from
+        select t.code CODE,ifnull(t1.GROUP_ID,'') ID from
+        (
+        <foreach collection="codes" item="codeItem" index="index" open="" close="" separator=" union all ">
+            select '${codeItem}' as code from dual
+        </foreach>
+        ) t
+        <if test='kind == "7"'>
+            left join MEDICAL_DRUG_GROUP t1 on t.code = t1.GROUP_CODE
+        </if>
+        <if test='kind == "5"'>
+            left join MEDICAL_DISEASE_GROUP t1 on t.code = t1.GROUP_CODE
+        </if>
+         <if test='kind == "1"'>
+            left join MEDICAL_PROJECT_GROUP t1 on t.code = t1.GROUP_CODE
+        </if>
+    </select>
+
+    <select id="queryGroupCodeIdInCodes" resultMap="com.ai.modules.config.vo.mybatis-plus_MedicalCodeNameVO">
+        select t.GROUP_CODE CODE,t.GROUP_ID ID,t.GROUP_NAME NAME from
+        <if test='kind == "7"'>
+            MEDICAL_DRUG_GROUP t where t.GROUP_CODE
+        </if>
+        <if test='kind == "5"'>
+            MEDICAL_DISEASE_GROUP t where t.GROUP_CODE
+        </if>
+        <if test='kind == "1"'>
+            MEDICAL_PROJECT_GROUP t where t.GROUP_CODE
+        </if>
+        in
+        <foreach collection="codes" item="code" index="index" open="(" close=")" separator=",">
+            #{code}
+        </foreach>
+        order by t.GROUP_CODE asc
+    </select>
+
+
+    <select id="queryTreatOrEquipmentCodeIdInCodes" resultMap="com.ai.modules.config.vo.mybatis-plus_MedicalCodeNameVO">
+        select t.* from (
+                          select t1.id ID,t1.code CODE,t1.NAME from  MEDICAL_TREAT_PROJECT t1
+                          union
+                          select t2.id ID,t2.productcode CODE,t2.productname NAME from  MEDICAL_EQUIPMENT t2
+                      ) t  where t.code in
+        <foreach collection="codes" item="code" index="index" open="(" close=")" separator=",">
+            #{code}
+        </foreach>
+        order by t.code
+    </select>
+
+    <select id="queryItemCodeIdInCodes" resultMap="com.ai.modules.config.vo.mybatis-plus_MedicalCodeNameVO">
+        select t.CODE,t.ID,t.NAME from
+        <if test='kind == "7"'>
+            MEDICAL_DRUG t where t.code
+        </if>
+        <if test='kind == "5"'>
+            MEDICAL_DISEASE_DIAG t where t.code
+        </if>
+        <if test='kind == "1"'>
+            MEDICAL_TREAT_PROJECT t where t.code
+        </if>
+        in
+        <foreach collection="codes" item="code" index="index" open="(" close=")" separator=",">
+            #{code}
+        </foreach>
+        order by t.code asc
+    </select>
+
+    <select id="queryMaxOrder" resultType="java.lang.Double">
+        SELECT MAX(ORDER_NO) from  MEDICAL_CLINICAL
+    </select>
+</mapper>

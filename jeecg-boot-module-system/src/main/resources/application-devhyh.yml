@@ -1,0 +1,356 @@
+server:
+  port: 8080
+  tomcat:
+    max-swallow-size: -1
+  servlet:
+    context-path: /suncare_v3
+    compression:
+      enabled: true
+      mime-types: application/javascript,application/json,application/xml,text/html,text/xml,text/plain,text/css,image/*
+
+management:
+  endpoints:
+    enabled-by-default: false
+#    web:
+#      exposure:
+#        include: metrics,httptrace
+
+spring:
+  devtools:
+    restart:
+      enabled: true  #设置开启热部署
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+  mail:
+    host: mail.asiainfo-data.com
+    username: data-quality@asiainfo-data.com
+    password: abfdf@2981
+    port: 465
+    protocol: smtp
+    default-encoding: utf-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          ssl:
+            enable: true
+          socketFactory:
+            port: 465
+            class: javax.net.ssl.SSLSocketFactory
+  ## quartz定时任务,采用数据库方式
+  quartz:
+    job-store-type: memory
+  #json 时间戳统一转换
+  jackson:
+    date-format:   yyyy-MM-dd HH:mm:ss
+    time-zone:   GMT+8
+  aop:
+    proxy-target-class: true
+  #配置freemarker
+  freemarker:
+    # 设置模板后缀名
+    suffix: .ftl
+    # 设置文档类型
+    content-type: text/html
+    # 设置页面编码格式
+    charset: UTF-8
+    # 设置页面缓存
+    cache: false
+    prefer-file-system-access: false
+    # 设置ftl文件路径
+    template-loader-path:
+    - classpath:/templates
+  # 设置静态文件路径，js,css等
+  mvc:
+    static-path-pattern: /**
+  resource:
+    static-locations: classpath:/static/,classpath:/public/
+  autoconfigure:
+    exclude: com.alibaba.druid.spring.boot.autoconfigure.DruidDataSourceAutoConfigure
+  datasource:
+    druid:
+      stat-view-servlet:
+        enabled: true
+        loginUsername: admin
+        loginPassword: 123456
+        allow:
+      web-stat-filter:
+        enabled: true
+    dynamic:
+      druid: # 全局druid参数，绝大部分值和默认保持一致。(现已支持的参数如下,不清楚含义不要乱设置)
+        # 连接池的配置信息
+        # 初始化大小，最小，最大
+        initial-size: 5
+        min-idle: 5
+        maxActive: 20
+        # 配置获取连接等待超时的时间
+        maxWait: 60000
+        # 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒
+        timeBetweenEvictionRunsMillis: 60000
+        # 配置一个连接在池中最小生存的时间，单位是毫秒
+        minEvictableIdleTimeMillis: 300000
+        validationQuery: SELECT 1 FROM DUAL
+        testWhileIdle: true
+        testOnBorrow: false
+        testOnReturn: false
+        # 打开PSCache，并且指定每个连接上PSCache的大小
+        poolPreparedStatements: true
+        maxPoolPreparedStatementPerConnectionSize: 20
+        # 配置监控统计拦截的filters，去掉后监控界面sql无法统计，'wall'用于防火墙
+        filters: stat,wall,slf4j
+        # 通过connectProperties属性来打开mergeSql功能；慢SQL记录
+        connectionProperties: druid.stat.mergeSql\=true;druid.stat.slowSqlMillis\=5000
+      datasource:
+        master:
+          # 咸阳
+          #          url: jdbc:oracle:thin:@10.63.80.131:1521:devdb
+          #          username: suncare_v3
+          #          password: XYS423KdW1H3ddW12s32f
+          #          url: jdbc:oracle:thin:@10.63.80.125:1521/pdb_oradb_prd
+          #          username: suncare_v3
+          #          password: c20211227#a7A82oPXffq83dAybDn
+          # 上饶
+          #url: jdbc:oracle:thin:@10.175.33.85:1521:oradb
+          #username: suncare_v3
+          #password: v2021021M6oPANBA86A2O
+          # 咸阳测试
+          #          url: jdbc:oracle:thin:@10.63.80.240:1521:devdb
+          #          username: suncare_v3_test
+          #          password: k1t2shMee23dn7h3rfrrYr
+          #          咸阳演示
+          #          url: jdbc:oracle:thin:@10.63.80.240:1521:devdb
+          #          username: suncare_v3_demo
+          #          password: A20210624tJk2shM3rrrY
+
+
+          #          driver-class-name: oracle.jdbc.OracleDriver
+          # 多数据源配置
+          #multi-datasource1:
+          #url: jdbc:mysql://localhost:3306/jeecg-boot2?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true
+          #username: root
+          #password: root
+          #          url: jdbc:mysql://10.63.80.240:31306/suncare_v4_test?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true
+          #          username: suncare_v4_test
+          #          password: A20220125H3dsi%fY1
+          #          url: jdbc:mysql://10.63.80.240:31306/suncare_v4_form?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true
+          #url: jdbc:mysql://192.168.1.202:23307/suncare_v4_test8?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true
+#          url: jdbc:mysql://10.63.80.240:3307/suncare_v4_test8?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=GMT%2B8
+#          username: suncare_v4_test8
+#          password: A20220628eO0E0dfu38d3iS105
+#          driver-class-name: com.mysql.cj.jdbc.Driver
+          url: jdbc:mysql://47.100.123.180:3306/suncare_v4_form?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
+          username: root
+#          password: A20220707MpOie9HS4eSUPp3yeUH2bMSSe
+#          password: ENC(iAaCn2JaCOFMJBvNmsjuBfLGcqzw6lLOD8DgRO5osuaWzVDokltdbMtfXYflefoD4AWTYsNtCYoDK78BFoflFIr4K0qJ4nqQ3VJkesDA4ro=)
+          password: 123456
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          #driver-class-name: com.mysql.jdbc.Driver
+  #          url: jdbc:mysql://10.63.80.240:31306/suncare_v4_test?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=CONVERT_TO_NULL&transformedBitIsBoolean=true
+  #          username: suncare_v4_test
+  #          password: A20220125H3dsi%fY1
+  #          url: jdbc:mysql://10.63.80.240:31306/suncare_v4_form?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=CONVERT_TO_NULL&transformedBitIsBoolean=true
+  #          #url: jdbc:mysql://192.168.1.202:31306/suncare_v4_form?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true
+  #          username: suncare_v4_form
+  #          password: 20220125Hi1sSf2Y1
+  #          driver-class-name: com.mysql.jdbc.Driver
+  #redis 配置
+  redis:
+    database: 0
+    host: 47.100.123.180
+    #    host: 192.168.1.202
+    #    host: 10.63.80.131
+    lettuce:
+      pool:
+        max-active: 8   #最大连接数据库连接数,设 0 为没有限制
+        max-idle: 8     #最大等待连接中的数量,设 0 为没有限制
+        max-wait: -1ms  #最大建立连接等待时间。如果超过此时间将接到异常。设为-1表示无限制。
+        min-idle: 0     #最小等待连接中的数量,设 0 为没有限制
+      shutdown-timeout: 100ms
+    password: ''
+    port: 6379
+#mybatis plus 设置
+mybatis-plus:
+  mapper-locations: classpath*:org/jeecg/modules/**/xml/*Mapper.xml,classpath*:com/ai/modules/**/xml/*Mapper.xml
+  #type-handlers-package: org.jeecg.common.util.dbencrypt
+  global-config:
+    # 关闭MP3.0自带的banner
+    banner: false
+    db-config:
+      #主键类型  0:"数据库ID自增",1:"该类型为未设置主键类型", 2:"用户输入ID",3:"全局唯一ID (数字类型唯一ID)", 4:"全局唯一ID UUID",5:"字符串全局唯一ID (idWorker 的字符串表示)";
+      id-type: 4
+      # 默认数据库表下划线命名
+      table-underline: true
+  configuration:
+    # 这个配置会将执行的sql打印出来，在开发或测试的时候可以用
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+#jasypt配置
+jasypt:
+  encryptor:
+    bean: asiaStringEncryptor
+#jeecg专用配置
+jeecg :
+  path :
+    #文件上传根目录 设置
+    upload: E:\ASIAProject\suncare_v3/upFiles
+    #webapp文件路径
+    webapp: D://webapp
+  #短信秘钥
+  sms:
+    accessKeyId: LTAI4GKZomaApFCkf5hXDmsW
+    accessKeySecret: 09283qaHu86OVI6t8gyyzhi02QOQx5
+    domain: dysmsapi.aliyuncs.com
+    defaultCode: 9527
+  shiro:
+    excludeUrls: /test/jeecgDemo/demo3,/test/jeecgDemo/redisDemo/**,/admin/**
+  #阿里云oss存储配置
+  oss:
+    type: aliyun
+    endpoint: oss-cn-beijing.aliyuncs.com
+    accessKey: ??
+    secretKey: ??
+    bucketName: jeecgos
+    properties:
+      aliyun:
+        protocol: https
+  # ElasticSearch 设置
+  elasticsearch:
+    cluster-name: my-application
+    cluster-nodes: 127.0.0.1:9200
+#  #腾讯云cos存储配置
+#  oss:
+#    type: qc
+#    #跟地区有关
+#    endpoint: cos.ap-beijing-1.myqcloud.com
+#    accessKey: ??
+#    secretKey: ??
+#    bucketName: jeecg-1251108935
+#    properties:
+#      qc:
+#        #地区
+#        region: ap-beijing-1
+#        #存储路径
+#        prefix: jeecgboot
+
+#Mybatis输出sql日志
+logging:
+  level:
+    #    org.jeecg.modules.system.mapper : debug
+    #    com.ai : debug
+    org.jeecg.modules.system.mapper: info
+#cas单点登录
+cas:
+  prefixUrl: http://cas.example.org:8443/cas
+solr:
+  datasource:
+    dynamic:
+      web: true
+      primary: shangrao3
+      druid:
+        socketTimeout: 1200000
+        collectionTimeout: 1200000
+        postJarPath: G:/亚信/阜阳/solr/post.jar
+        maxRow: 10000
+      datasource:
+        #默认
+        default:
+          #zk: 10.63.80.131:2381
+          url: http://10.63.82.188:8983/solr
+        #阜南
+        funan:
+          #zk: 10.63.82.189:2381
+          url: http://10.63.82.189:8983/solr
+        #高密
+        gaomi:
+          #zk: 10.63.80.131:2381
+          url: http://10.63.80.131:8983/solr
+        #菏泽
+        heze:
+          #zk: 10.63.82.188:2381
+          url: http://10.63.82.188:8983/solr
+        #上饶
+        shangrao:
+          #zk: 10.175.33.3:2381
+          url: http://10.175.33.154:8984/solr
+        shangrao3:
+          #zk: 10.175.33.3:2381
+          url: http://server:server9527@10.175.33.154:8984/solr
+        shangrao5:
+          #zk: 10.175.33.3:2381
+          url: http://10.175.33.3:8985/solr
+        #界首
+        #界首
+        jieshou:
+          #zk: 10.63.82.188:2381
+          url: http://172.22.4.153:8983/solr
+        #演示
+        yanshi:
+          #zk: 10.63.82.189:2381
+          url: http://10.63.80.110:8983/solr
+        # 巢湖
+        hefei:
+          #zk: 10.63.82.189:2381
+          #          url: http://10.63.80.127:8983/solr
+          url: http://10.175.33.3:8984/solr
+        weifang:
+          url: http://10.175.33.3:8987/solr
+          user: admin
+          password: admin9527
+        fuyang:
+          url: http://10.63.82.189:8987/solr
+        jiaxiang:
+          #zk: 10.2.74.9:2381
+          url: http://10.2.74.9:8981/solr
+  solrConfigPath: G:/solr/collection/
+  importFolder: ./xml
+engine:
+  #async=true开启cmd命令方式跑任务
+  async: false
+  #数仓
+  warehouse:
+    datasource:
+      driver-class-name: org.apache.hive.jdbc.HiveDriver
+      url: jdbc:hive2://10.63.82.200:10000/medical
+      username: gbdp
+      password: SnNK9z50i0hiZSdG
+    #      driver-class-name: com.mysql.cj.jdbc.Driver
+    #      url: jdbc:mysql://10.175.33.12:3306/medical?useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true&serverTimezone=UTC&allowLoadLocalInfile=true
+    #      username: gbdp_reader
+    #      password: NWZ0NWhuamp1
+    hdfs:
+      fs-default-name: hdfs://10.63.82.202:8020
+      storage-root: /tmp/solr/suncare
+
+#以谁来发送邮件
+mail:
+  fromMail:
+    addr: data-quality@asiainfo-data.com
+
+#sqlldr配置
+sqlldr:
+  ctrl:
+    folder: /home/web/sqlLoader/ctrlfolder
+  work:
+    folder: /home/web/sqlLoader/workfolder
+
+#大数据平台url
+gbdpweb:
+  url:
+    #默认
+    default: http://10.63.82.51:10083/gbdpWeb
+    #阜南
+    funan: http://10.63.82.51:10083/gbdpWeb
+    #上饶
+    shangrao: http://10.175.33.85/gbdpWeb
+    shangrao3: http://10.175.33.85/gbdpWeb
+    #界首
+    jieshou: http://172.22.4.155:10080/gbdpWeb
+
+#映射采集任务url
+mappingtask:
+  url: http://10.63.82.189:8080
+

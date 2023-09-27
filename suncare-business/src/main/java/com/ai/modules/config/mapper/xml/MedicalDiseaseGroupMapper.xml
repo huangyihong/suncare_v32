@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.config.mapper.MedicalDiseaseGroupMapper">
+
+   <select id="queryGroupItem" resultMap="com.ai.modules.config.vo.mybatis-plus_MedicalGroupVO">
+		   SELECT t.*,t1.GROUP_CODE,t1.GROUP_NAME
+		   from MEDICAL_DISEASE_GROUP_ITEM t,MEDICAL_DISEASE_GROUP t1
+		   WHERE t.GROUP_ID = t1.GROUP_ID
+		<if test="groupId!=null and groupId!=''">
+			and t.GROUP_ID = #{groupId}
+		</if>
+		<if test="code!=null and code!=''">
+			<choose>
+				<when test="code.startsWith('*') or code.endsWith('*')">
+					and t.CODE like replace(#{code},'*','%')
+				</when>
+				<otherwise>
+					and t.CODE = #{code}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="value!=null and value!=''">
+			<choose>
+				<when test="value.startsWith('*') or value.endsWith('*')">
+					and t.VALUE like replace(#{value},'*','%')
+				</when>
+				<otherwise>
+					and t.VALUE = #{value}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="groupCode!=null and groupCode!=''">
+			<choose>
+				<when test="groupCode.startsWith('*') or groupCode.endsWith('*')">
+					and t1.GROUP_CODE like replace(#{groupCode},'*','%')
+				</when>
+				<when test="groupCode.startsWith('|')">
+				    and
+				    <foreach collection="groupCode.replace('，',',').split(',')" item="codeArr" index="index1" separator="and" >
+					    <foreach collection="codeArr.split('\\|')" item="codestr" index="index2" open="(" close=")" separator="or">
+						    <if test="codestr!=null and codestr!=''">
+						     t1.GROUP_CODE like concat('%',#{codestr},'%')
+						    </if>
+						</foreach>
+					</foreach>
+				</when>
+				<otherwise>
+					and t1.GROUP_CODE = #{groupCode}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="groupName!=null and groupName!=''">
+			<choose>
+				<when test="groupName.startsWith('*') or groupName.endsWith('*')">
+					and t1.GROUP_NAME like replace(#{groupName},'*','%')
+				</when>
+				<when test="groupName.startsWith('|')">
+				    and
+				    <foreach collection="groupName.replace('，',',').split(',')" item="codeArr" index="index1" separator="and" >
+					    <foreach collection="codeArr.split('\\|')" item="codestr" index="index2" open="(" close=")" separator="or">
+						    <if test="codestr!=null and codestr!=''">
+						     t1.GROUP_NAME like concat('%',#{codestr},'%')
+						    </if>
+						</foreach>
+					</foreach>
+				</when>
+				<otherwise>
+					and t1.GROUP_NAME = #{groupName}
+				</otherwise>
+			</choose>
+		</if>
+		   ORDER BY t.GROUP_ID, t.IS_ORDER,t.CODE
+	</select>
+
+	<select id="queryGroupItemCount" resultType="java.lang.Integer">
+	       SELECT count(*)
+		   from MEDICAL_DISEASE_GROUP_ITEM t,MEDICAL_DISEASE_GROUP t1
+		   WHERE t.GROUP_ID = t1.GROUP_ID
+		<if test="groupId!=null and groupId!=''">
+			and t.GROUP_ID = #{groupId}
+		</if>
+		<if test="code!=null and code!=''">
+			<choose>
+				<when test="code.startsWith('*') or code.endsWith('*')">
+					and t.CODE like replace(#{code},'*','%')
+				</when>
+				<otherwise>
+					and t.CODE = #{code}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="value!=null and value!=''">
+			<choose>
+				<when test="value.startsWith('*') or value.endsWith('*')">
+					and t.VALUE like replace(#{value},'*','%')
+				</when>
+				<otherwise>
+					and t.VALUE = #{value}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="groupCode!=null and groupCode!=''">
+			<choose>
+				<when test="groupCode.startsWith('*') or groupCode.endsWith('*')">
+					and t1.GROUP_CODE like replace(#{groupCode},'*','%')
+				</when>
+				<when test="groupCode.startsWith('|')">
+				    and
+				    <foreach collection="groupCode.replace('，',',').split(',')" item="codeArr" index="index1" separator="and" >
+					    <foreach collection="codeArr.split('\\|')" item="codestr" index="index2" open="(" close=")" separator="or">
+						    <if test="codestr!=null and codestr!=''">
+						     t1.GROUP_CODE like concat('%',#{codestr},'%')
+						    </if>
+						</foreach>
+					</foreach>
+				</when>
+				<otherwise>
+					and t1.GROUP_CODE = #{groupCode}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="groupName!=null and groupName!=''">
+			<choose>
+				<when test="groupName.startsWith('*') or groupName.endsWith('*')">
+					and t1.GROUP_NAME like replace(#{groupName},'*','%')
+				</when>
+				<when test="groupName.startsWith('|')">
+				    and
+				    <foreach collection="groupName.replace('，',',').split(',')" item="codeArr" index="index1" separator="and" >
+					    <foreach collection="codeArr.split('\\|')" item="codestr" index="index2" open="(" close=")" separator="or">
+						    <if test="codestr!=null and codestr!=''">
+						     t1.GROUP_NAME like concat('%',#{codestr},'%')
+						    </if>
+						</foreach>
+					</foreach>
+				</when>
+				<otherwise>
+					and t1.GROUP_NAME = #{groupName}
+				</otherwise>
+			</choose>
+		</if>
+	</select>
+
+	<select id="queryGroupItemByGroupCodes" resultMap="com.ai.modules.config.vo.mybatis-plus_MedicalGroupVO">
+		SELECT t.*,t1.GROUP_CODE,t1.GROUP_NAME
+		from MEDICAL_DISEASE_GROUP_ITEM t,MEDICAL_DISEASE_GROUP t1
+		WHERE t.GROUP_ID = t1.GROUP_ID and t1.GROUP_CODE in
+		<foreach collection="groupCodes" item="code" index="index" open="(" close=")" separator=",">
+			#{code}
+		</foreach>
+		ORDER BY t1.GROUP_CODE, t.IS_ORDER,t.CODE
+	</select>
+
+	<select id="queryGroupItem2" resultMap="com.ai.modules.config.vo.mybatis-plus_MedicalGroupVO">
+		select * from (SELECT t.ITEM_ID,t.CODE,t.VALUE,t.GROUP_ID,t.TABLE_TYPE,t.REMARK,'0' ACTION_TYPE,
+		t1.IS_ORDER,t1.GROUP_CODE,t1.GROUP_NAME,t1.CREATE_STAFF,t1.CREATE_STAFF_NAME,t1.CREATE_TIME,t1.UPDATE_STAFF,t1.UPDATE_STAFF_NAME,t1.UPDATE_TIME
+		   from MEDICAL_DISEASE_GROUP_ITEM t,MEDICAL_DISEASE_GROUP t1
+		   WHERE t.GROUP_ID = t1.GROUP_ID)a ${ew.customSqlSegment}
+	</select>
+
+	<select id="queryGroupItemCount2" resultType="java.lang.Integer">
+		select count(*) from (SELECT t.ITEM_ID,t.CODE,t.VALUE,t.GROUP_ID,t.TABLE_TYPE,t.REMARK,
+		t1.IS_ORDER,t1.GROUP_CODE,t1.GROUP_NAME,t1.CREATE_STAFF,t1.CREATE_STAFF_NAME,t1.CREATE_TIME,t1.UPDATE_STAFF,t1.UPDATE_STAFF_NAME,t1.UPDATE_TIME
+		   from MEDICAL_DISEASE_GROUP_ITEM t,MEDICAL_DISEASE_GROUP t1
+		   WHERE t.GROUP_ID = t1.GROUP_ID)a ${ew.customSqlSegment}
+	</select>
+</mapper>

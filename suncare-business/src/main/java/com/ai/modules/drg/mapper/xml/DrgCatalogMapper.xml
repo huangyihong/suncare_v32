@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.drg.mapper.DrgCatalogMapper">
+
+    <select id="selectPageVO" resultType="com.ai.modules.drg.vo.DrgCatalogVo">
+        SELECT
+            t.*
+            ,(select version_name from drg_catalog where catalog_type='MDC_V' and version_code=t.mdc_Catalog_V ) as mdc_Catalog_V_Text
+            ,(select version_name from drg_catalog where catalog_type='ADRG_V' and version_code=t.adrg_Catalog_V ) as adrg_Catalog_V_Text
+            ,(select version_name from drg_catalog where catalog_type='MDC_INFO_V' and version_code=t.mdc_Info_V ) as mdc_Info_V_Text
+            ,(select version_name from drg_catalog where catalog_type='ADRG_LIST_V' and version_code=t.adrg_List_V ) as adrg_List_V_Text
+            ,(select version_name from drg_catalog where catalog_type='MCC_INFO_V' and version_code=t.mcc_Info_V ) as mcc_Info_V_Text
+            ,(select version_name from drg_catalog where catalog_type='CC_INFO_V' and version_code=t.cc_Info_V ) as cc_Info_V_Text
+            ,(select version_name from drg_catalog where catalog_type='EXCLUDE_INFO_V' and version_code=t.exclude_Info_V ) as exclude_Info_V_Text
+            ,(select version_name from drg_catalog where catalog_type='SURGERY_INFO_V' and version_code=t.surgery_Info_V ) as surgery_Info_V_Text
+        FROM
+            drg_catalog t ${ew.customSqlSegment}
+
+    </select>
+
+</mapper>

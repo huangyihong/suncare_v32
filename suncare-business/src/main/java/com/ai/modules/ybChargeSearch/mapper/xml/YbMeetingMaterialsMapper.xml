@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.ybChargeSearch.mapper.YbMeetingMaterialsMapper">
+
+
+    <select id="getPage" resultType="com.ai.modules.ybChargeSearch.vo.YbMeetingMaterialsVo">
+        select
+               t1.*,
+               t2.id as detail_id,
+               t2.cat,
+               t2.item,
+               t2.wg_desc,
+               t2.pax,
+               t2.fund_amt,
+               t2.penalty_n,
+               t2.penalty_amt,
+               t2.clause_t,
+               t2.clause_k
+        from yb_meeting_materials t1,yb_meeting_materials_detail t2
+        <where>
+            AND t1.id = t2.mid
+            <if test="query.orgname != null and query.orgname != '' ">
+                AND t1.orgname like concat('%',#{query.orgname},'%')
+            </if>
+            <if test="query.actionname != null and query.actionname != '' ">
+                AND t1.actionname like concat('%',#{query.actionname},'%')
+            </if>
+            <if test="query.cat != null and query.cat != '' ">
+                AND t1.cat like concat('%',#{query.cat},'%')
+            </if>
+            <if test="query.wgDesc != null and query.wgDesc != '' ">
+                AND t1.wg_desc like concat('%',#{query.wgDesc},'%')
+            </if>
+
+        </where>
+    </select>
+</mapper>

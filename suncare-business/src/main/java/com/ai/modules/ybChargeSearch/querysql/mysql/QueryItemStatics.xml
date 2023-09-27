@@ -1,0 +1,451 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+<!-- 收费项目统计 按医院统计、按科室统计（不包含科室前10这个报表) -->
+<sql id="querySql_YB"><![CDATA[
+-- 标签表
+drop TABLE if EXISTS medical_gbdp.t_tagname_set_${sqlSeq};
+create table medical_gbdp.t_tagname_set_${sqlSeq} as
+(
+  SELECT
+  group_concat(distinct tag_name) as tag_name ,
+  yyear, orgname,visittype, itemname_src
+  from medical.datamining_chargeitem_risk_data t
+  where 1=1
+  and etl_source='${etl_source}'
+  and tag_name='${tagName}'
+  and orgname rlike '${orgname}'
+  and yyear>='${yearStart}'
+  and yyear<='${yearEnd}'
+  and project='${project}' -- 项目新加
+  and orgname in  (select orgname from ods_checkorg_list a where 1=1 --${ods_checkorg_list}
+       and a.local_tag='${localTag}'
+       and a.hosplevel='${hosplevel}'
+       and a.owntype='${owntype}'
+       and a.max_allfund_pay ${fundValType} ${maxAllfundPay}
+  ) --${ods_checkorg_list}
+  GROUP BY yyear, orgname,visittype, itemname_src
+);
+
+-- 最终查询
+drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as (
+  select t.*,
+  chargeclass as itemclass,sl as amount,fy as sum_fee,t1.tag_name
+  from
+  (select * from
+    dc_src_yb_charge_detail_org t -- --${ORG_STATIC}
+    dc_src_yb_charge_detail_dept t -- --${DEPT_STATIC}
+    where 1=1
+    and yyear>='${yearStart}'
+    and yyear<='${yearEnd}'
+    and not visittype rlike '住院'  --${MM}
+    and visittype rlike '住院'  --${ZY}
+    and visittype rlike '药'  --${GY}
+    and deptname rlike '${deptname}'
+    --${NOORGID} and orgname rlike '${orgname}'
+    and orgid in (${orgid})
+    and orgname in  (select orgname from ods_checkorg_list a where 1=1 --${ods_checkorg_list}
+       and a.local_tag='${localTag}'
+       and a.hosplevel='${hosplevel}'
+       and a.owntype='${owntype}'
+       and a.max_allfund_pay ${fundValType} ${maxAllfundPay}
+    ) --${ods_checkorg_list}
+  ) t
+  left join  -- 标签名称条件为空，用left join  --${no_tagName}
+  inner join -- 标签名称条件不为空，inner join  --${tagName}
+
+  medical_gbdp.t_tagname_set_${sqlSeq} t1 on
+  t.orgname = t1.orgname and t.visittype = t1.visittype and t.yyear=t1.yyear
+  and t.itemname=t1.itemname_src
+  limit ${limitCount}
+  );
+
+-- limited-max-count=1000000
+select * from medical_gbdp.t_dc_result_${sqlSeq} t
+  order by t.orgname,t.yyear,
+  sum_fee desc,
+  t.itemname
+
+]]></sql>
+
+
+<!-- 备份：收费项目统计 按医院统计、按科室统计（不包含科室前10这个报表) -->
+<sql id="querySql_YB_bak"><![CDATA[
+-- 明细表查询
+drop TABLE if EXISTS medical_gbdp.t_detail_set_${sqlSeq};
+create table medical_gbdp.t_detail_set_${sqlSeq} as
+(
+  select orgid,orgname,visitid,substr(cast(chargedate as CHAR),1,4) as yyear,his_itemname,itemname,itemcode, itemclass,
+  chargeattri,itemprice,amount,fee from src_yb_charge_detail t where 1=1
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  -- 不包含自费明细 ${fundpayonly} --${NOTGY}
+  and exists(select 1 from src_yb_settlement  t1 where t.visitid=t1.visitid and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly} --${NOTGY}
+  and exists(select 1 from src_yb_settlement  t1 where t.visitid=t1.visitid and t.orgid=t1.orgid and t1.indiv_acct_pay>0) --${GY}
+  and to_char(chargedate, 'YYYY')>='${yearStart}'
+  and chargedate<='${yearEnd}'
+);
+-- 加索引
+CREATE INDEX idx_detail_set_${sqlSeq} ON medical_gbdp.t_detail_set_${sqlSeq} (visitid,orgid);
+
+
+-- master表查询
+drop TABLE if EXISTS medical_gbdp.t_master_set_${sqlSeq};
+create table medical_gbdp.t_master_set_${sqlSeq} as
+(
+  select orgid,orgname,visitid,visittype
+  --${DEPT_STATIC} ,deptname
+  from src_yb_master_info t where 1=1
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and not visittype rlike '住院'  --${MM}
+  and visittype rlike '住院'  --${ZY}
+  and visittype rlike '药'  --${GY}
+  and t.deptname rlike '${deptname}'
+  and t.visitid in (${visitid_in})
+  and concat(trim(t.clientname),substr(cast(t.birthday as CHAR),1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+);
+-- 加索引
+CREATE INDEX idx_master_set_${sqlSeq} ON medical_gbdp.t_master_set_${sqlSeq} (visitid,orgid);
+
+
+-- 主表和明细表
+drop TABLE if EXISTS medical_gbdp.t_master_detail_set_${sqlSeq};
+create table medical_gbdp.t_master_detail_set_${sqlSeq} as
+(
+  select a.orgid, a.orgname,visittype, yyear,his_itemname,itemname,itemcode,a.itemclass,a.chargeattri,itemprice,
+  sum(amount) as amount,sum(fee) as sum_fee
+  --${DEPT_STATIC} ,deptname
+  from medical_gbdp.t_detail_set_${sqlSeq}
+   a inner join medical_gbdp.t_master_set_${sqlSeq} b
+  on a.orgid=b.orgid and a.visitid=b.visitid
+  group by a.orgid,a.orgname,visittype,yyear,his_itemname,itemname,a.itemcode,a.itemclass,a.chargeattri,itemprice
+  --${DEPT_STATIC} ,deptname
+);
+
+-- 标签表
+drop TABLE if EXISTS medical_gbdp.t_tagname_set_${sqlSeq};
+create table medical_gbdp.t_tagname_set_${sqlSeq} as
+(
+  SELECT
+  group_concat(distinct tag_name) as tag_name ,
+  yyear, orgname,visittype, his_itemname_src
+  from medical.datamining_chargeitem_risk_data t
+  where 1=1
+  and etl_source='${etl_source}'
+  and tag_name='${tagName}'
+  and project='${project}' -- 项目新加
+  GROUP BY yyear, orgname,visittype, his_itemname_src
+);
+
+-- 最终查询
+drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as (
+  select t.* ,COALESCE(t1.tag_name,'') as tag_name from medical_gbdp.t_master_detail_set_${sqlSeq} t left join medical_gbdp.t_tagname_set_${sqlSeq} t1 on
+  t.orgname = t1.orgname and t.visittype = t1.visittype and t.yyear=t1.yyear and t.his_itemname=t1.his_itemname_src
+  where 1=1 and t1.tag_name='${tagName}'
+  limit ${limitCount}
+  );
+
+-- limited-max-count=1000000
+select * from medical_gbdp.t_dc_result_${sqlSeq} t
+  order by t.orgname,t.yyear,
+  sum_fee desc,
+  t.itemname
+]]></sql>
+
+
+<!-- 收费项目统计 医院HIS来源 -->
+<sql id="querySql_HIS"><![CDATA[
+-- 门诊明细
+drop TABLE if EXISTS medical_gbdp.t_his_mz_detail_set_${sqlSeq};
+create table medical_gbdp.t_his_mz_detail_set_${sqlSeq} as (
+  select orgid,orgname,visitid,substr(cast(chargedate as CHAR),1,4) as yyear,his_itemname,itemname,
+  itemcode, itemclass,chargeattri,itemprice,amount,fee
+  from src_his_mz_charge_detail t where 1=1
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  -- 不包含自费明细  ${fundpayonly}
+  and exists(select 1 from src_his_mz_settlement t1 where t.visitid=t1.visitid and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+  and to_char(chargedate, 'YYYY')>='${yearStart}'
+  and chargedate<='${yearEnd}'
+);
+-- 加索引
+CREATE INDEX idx_his_mz_detail_set_${sqlSeq} ON medical_gbdp.t_his_mz_detail_set_${sqlSeq} (visitid,orgid);
+
+
+-- 门诊master主表
+drop TABLE if EXISTS medical_gbdp.t_his_mz_master_set_${sqlSeq};
+create table medical_gbdp.t_his_mz_master_set_${sqlSeq} as (
+  select orgid,orgname,visitid,
+  (case when visittype is null or visittype='' then '门诊' else visittype end ) as visittype
+  --${DEPT_STATIC} ,deptname
+  from src_his_mz_master_info t
+  where 1=1
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.deptname rlike '${deptname}'
+   and t.visitid in (${visitid_in})
+  and concat(trim(t.clientname),substr(cast(t.birthday as CHAR),1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+) ;
+-- 加索引
+CREATE INDEX idx_his_mz_master_set_${sqlSeq} ON medical_gbdp.t_his_mz_master_set_${sqlSeq} (visitid,orgid);
+
+-- 门诊明细+master合并结果表
+drop TABLE if EXISTS medical_gbdp.t_his_mz_total_set_${sqlSeq};
+create table medical_gbdp.t_his_mz_total_set_${sqlSeq} as (
+  select a.orgid,a.orgname,visittype,  yyear,his_itemname,itemname,itemcode,a.itemclass,
+  a.chargeattri,itemprice,sum(amount) as amount,sum(fee) as sum_fee
+  --${DEPT_STATIC} ,deptname
+  from medical_gbdp.t_his_mz_detail_set_${sqlSeq} a inner join medical_gbdp.t_his_mz_master_set_${sqlSeq} b
+  on a.orgid=b.orgid and a.visitid=b.visitid
+  group by a.orgid,a.orgname,visittype,yyear,his_itemname,itemname,itemcode,a.itemclass,a.chargeattri,itemprice
+  --${DEPT_STATIC} ,deptname
+);
+
+
+
+--住院明细表
+drop TABLE if EXISTS medical_gbdp.t_his_zy_detail_set_${sqlSeq};
+create table medical_gbdp.t_his_zy_detail_set_${sqlSeq} as (
+  select orgid,orgname,visitid,substr(cast(chargedate as CHAR),1,4) as yyear,his_itemname,itemname,
+  itemcode, itemclass,chargeattri,itemprice,amount,fee
+  from src_his_zy_charge_detail t where 1=1
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  -- 不包含自费明细 ${fundpayonly}
+  and exists(select 1 from src_his_zy_settlement t1 where t.visitid=t1.visitid and t.orgid=t1.orgid and t1.fundpay>0)  --${fundpayonly}
+  and to_char(chargedate, 'YYYY')>='${yearStart}'
+  and chargedate<='${yearEnd}'
+);
+-- 加分区加索引
+CREATE INDEX idx_his_zy_detail_set_${sqlSeq} ON medical_gbdp.t_his_zy_detail_set_${sqlSeq} (visitid,orgid);
+
+
+-- 住院master主表
+drop TABLE if EXISTS medical_gbdp.t_his_zy_master_set_${sqlSeq};
+create table medical_gbdp.t_his_zy_master_set_${sqlSeq} as (
+  select orgid,orgname,visitid,
+  (case when visittype is null or visittype='' then '住院' else visittype end ) as visittype
+  --${DEPT_STATIC} ,admit_deptname as deptname
+  from src_his_zy_master_info t
+  where 1=1
+  --${NOORGID} and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and t.admit_deptname rlike '${deptname}'
+  and t.visitid in (${visitid_in})
+  and concat(trim(t.clientname),substr(cast(t.birthday as CHAR),1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+) ;
+-- 加索引
+CREATE INDEX idx_his_zy_master_set_${sqlSeq} ON medical_gbdp.t_his_zy_master_set_${sqlSeq} (visitid,orgid);
+
+-- 住院明细+master主表合并
+drop TABLE if EXISTS medical_gbdp.t_his_zy_total_set_${sqlSeq};
+create table medical_gbdp.t_his_zy_total_set_${sqlSeq} as (
+   select a.orgid,a.orgname,visittype,  yyear,his_itemname,itemname,itemcode,a.itemclass,a.chargeattri,itemprice,
+   sum(amount) as amount,sum(fee) as sum_fee
+   --${DEPT_STATIC} ,deptname
+   from medical_gbdp.t_his_zy_detail_set_${sqlSeq} a inner join medical_gbdp.t_his_zy_master_set_${sqlSeq} b
+   on a.orgid=b.orgid and a.visitid=b.visitid
+   group by a.orgid,a.orgname,visittype,yyear,his_itemname,itemname,itemcode,a.itemclass,a.chargeattri,itemprice
+   --${DEPT_STATIC} ,deptname
+)
+;
+
+
+-- 标签表
+drop TABLE if EXISTS medical_gbdp.t_tagname_set_${sqlSeq};
+create table medical_gbdp.t_tagname_set_${sqlSeq} as (
+  SELECT
+  group_concat(distinct tag_name) as tag_name ,
+  yyear, orgname,visittype, his_itemname_src
+  from medical.datamining_chargeitem_risk_data t
+  where 1=1
+  and etl_source='${etl_source}'
+  and project='${project}' -- 项目新加
+  GROUP BY yyear, orgname,visittype, his_itemname_src
+)
+;
+
+
+-- 全部数据
+drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as
+(
+select t.*,t1.tag_name from
+  medical_gbdp.t_his_mz_total_set_${sqlSeq}   --${MM}
+  medical_gbdp.t_his_mz_total_set_${sqlSeq}   --${ZY}
+  (select * from medical_gbdp.t_his_mz_total_set_${sqlSeq} union all select * from medical_gbdp.t_his_zy_total_set_${sqlSeq}) --${ZY+MM}
+  t left join medical_gbdp.t_tagname_set_${sqlSeq} t1 on
+  t.orgname = t1.orgname and t.visittype = t1.visittype and t.yyear=t1.yyear and t.his_itemname=t1.his_itemname_src
+  where 1=1 and t1.tag_name='${tagName}'
+  limit ${limitCount}
+  );
+
+  select * from medical_gbdp.t_dc_result_${sqlSeq} t
+  -- 排序字段
+  order by t.orgname,t.yyear,
+  sum_fee desc ,
+  t.itemname
+
+
+]]></sql>
+
+<!-- 收费项目统计 医院HIS来源 -->
+<sql id="queryDeptListFromHis"><![CDATA[
+SELECT DISTINCT deptname from (
+ SELECT DISTINCT COALESCE(deptname,'') as deptname from src_his_mz_master_info
+   where 1=1
+   --${NOORGID} and orgname rlike '${orgname}'
+   and deptname rlike '${deptname}'
+   and orgid in (${orgid})
+ union all
+ SELECT DISTINCT COALESCE(admit_deptname,'') as deptname from src_his_zy_master_info
+   where 1=1
+   --${NOORGID} and orgname rlike '${orgname}'
+   and deptname rlike '${deptname}'
+   and orgid in (${orgid})
+) t ORDER BY deptname
+]]></sql>
+<!-- 收费项目统计 医保来源 -->
+<sql id="queryDeptListFromYb"><![CDATA[
+SELECT  deptname  from dc_src_yb_master_diag_settl
+where 1=1
+--${NOORGID} and orgname rlike '${orgname}'
+and deptname rlike '${deptname}'
+and orgid in (${orgid})
+group by deptname
+order by count(1) desc
+]]></sql>
+
+<!-- 机构列表 -->
+<sql id="queryOrgList"><![CDATA[
+SELECT
+REPLACE(group_concat(DISTINCT orgid),',','|') as value,
+orgname as name,
+REPLACE(group_concat(DISTINCT orgid),',','|') as orgid
+from ods_checkorg_list
+group by orgname order by orgname desc
+-- 默认返回最多500条
+limit  500
+]]></sql>
+
+<!-- 机构分页列表 -->
+<sql id="queryOrgPageList"><![CDATA[
+SELECT
+REPLACE(group_concat(DISTINCT orgid),',','|') as orgid,orgname,owntype,local_tag,hosplevel,sum(max_allfund_pay) as max_allfund_pay
+from ods_checkorg_list
+where 1=1
+and orgid = '${orgid}'
+and orgname rlike '${orgname}'
+and owntype = '${owntype}'
+and hosplevel = '${hosplevel}'
+and local_tag = '${localTag}'
+group by orgname,owntype,local_tag,hosplevel
+HAVING sum(max_allfund_pay) ${fundValType} ${maxAllfundPay}
+order by orgname desc
+-- limit ${size} OFFSET (${current}-1)*${size}
+limit ${size} offset ${offset}
+]]></sql>
+
+<!-- 机构分页列表 -->
+<sql id="queryOrgPageCountList"><![CDATA[
+select count(1) as total from (
+SELECT
+ REPLACE(group_concat(DISTINCT orgid),',','|') as orgid,orgname,owntype,local_tag,hosplevel,sum(max_allfund_pay) as max_allfund_pay
+from ods_checkorg_list
+where 1=1
+and orgid = '${orgid}'
+and orgname rlike '${orgname}'
+and owntype = '${owntype}'
+and hosplevel = '${hosplevel}'
+and local_tag = '${localTag}'
+group by orgname,owntype,local_tag,hosplevel
+HAVING sum(max_allfund_pay) ${fundValType} ${maxAllfundPay}
+ order by orgname desc
+) as t
+]]></sql>
+
+
+
+
+    <!-- 机构属性列表 -->
+<sql id="queryOwntypeList"><![CDATA[
+SELECT
+owntype as value
+from ods_checkorg_list
+group by owntype order by owntype desc
+]]></sql>
+
+
+<!-- 机构所在地列表 -->
+<sql id="queryLocalTagList"><![CDATA[
+SELECT
+local_tag as value
+from ods_checkorg_list
+group by local_tag order by local_tag desc
+]]></sql>
+
+    <!-- 医院等级 -->
+    <sql id="queryHosplevelList"><![CDATA[
+SELECT
+hosplevel as value
+from ods_checkorg_list
+group by hosplevel order by hosplevel desc
+]]></sql>
+
+<!-- 医院等级/机构属性/机构所在地 -->
+<sql id="queryOwntypeLocalTagHosplevel"><![CDATA[
+SELECT
+distinct hosplevel,owntype,local_tag
+from ods_checkorg_list
+order by hosplevel desc
+]]></sql>
+
+
+<!-- 机构关联低标准入院 -->
+<sql id="queryOrgListFromLow"><![CDATA[
+with org_set as (
+select  orgname_src  ,count(1) as count from medical.dwb_visitid_tag t
+where project='${project}' and tag_id = '${tag_id}'
+group by orgname_src)
+, org_count_set as (
+select t.orgname as value, concat( t.orgname, '(',cast(COALESCE(t1.count,0) as CHAR) ,')' ) as name,COALESCE(t1.count,0) as count  from ods_checkorg_list t left join org_set t1
+on t.orgname=t1.orgname_src order by COALESCE(t1.count,0) desc )
+select distinct t.* from org_count_set t order by count desc
+]]></sql>
+
+<!-- 机构关联收费项目异常 -->
+<sql id="queryOrgListFromRisk"><![CDATA[
+with org_set as (
+select  orgname  ,count(1) as count from medical.$TABLE$ t
+where project='${project}' and tag_index = '${tag_id}'
+group by orgname )
+, org_count_set as (
+select  t.orgname as value, concat( t.orgname, '(',cast(COALESCE(t1.count,0) as CHAR) ,')' ) as name,COALESCE(t1.count,0) as count  from ods_checkorg_list t left join org_set t1
+on t.orgname=t1.orgname order by COALESCE(t1.count,0) desc )
+select distinct t.* from org_count_set t order by count desc
+]]></sql>
+
+    <!-- 机构关联收费项目异常 -->
+    <sql id="queryOrgListFromRiskAlltag"><![CDATA[
+with org_set as (
+select  orgname  ,count(1) as count from medical.$TABLE$ t
+where project='${project}'
+group by orgname )
+, org_count_set as (
+select t.orgname as value, concat( t.orgname, '(',cast(COALESCE(t1.count,0) as CHAR) ,')' ) as name,COALESCE(t1.count,0) as count from ods_checkorg_list t left join org_set t1
+on t.orgname=t1.orgname order by COALESCE(t1.count,0) desc )
+select distinct t.* from org_count_set t order by count desc
+]]></sql>
+
+</mapper>

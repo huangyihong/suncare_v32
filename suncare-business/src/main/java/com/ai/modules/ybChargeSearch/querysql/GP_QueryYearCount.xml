@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+
+<!-- 年度统计报表 医保项目使用率 医保 -->
+<sql id="year_count_YB"><![CDATA[
+ select t.*
+ from (select t1.*,
+    row_number()over(partition by t1.itemType order by t1.userate desc) as rank1
+    from dc_org_year_itemcount_yb  t1
+      where 1=1
+      and t1.orgname ~ '${orgname}'
+      and t1.yyear>='${yearStart}'
+      and t1.yyear<='${yearEnd}'
+      and t1.itemType ~ '${itemname}'
+      and not t1.visittype ~ '住院'  --${MM}
+      and t1.visittype ~ '住院'  --${ZY}
+
+      and orgname in  (select orgname from ods_checkorg_list a where 1=1 --${ods_checkorg_list}
+       and a.local_tag='${localTag}'
+       and a.hosplevel='${hosplevel}'
+       and a.owntype='${owntype}'
+       and a.max_allfund_pay ${fundValType} ${maxAllfundPay}
+      ) --${ods_checkorg_list}
+
+     ) t
+ WHERE t.rank1<101 -- 收费项目三大类取TOP100
+ order by ${orderby}
+
+]]></sql>
+
+<!-- 年度统计报表 医保项目使用率 医保 -->
+<sql id="create_year_count_YB"><![CDATA[
+---- 创建年度统计报表--医保项目使用率 （医保）
+--明细查询
+drop TABLE if EXISTS t_detail_set;
+create table t_detail_set as (
+  select t.orgid,t.orgname,t.visitid,t.itemname,t.chargeclass,
+  (case when t.chargeclass like '%药%' then '药品' when t.chargeclass like '%材料%' then '耗材' else '诊疗' end) as itemType,
+  sum(t.fee) as fee
+  from src_yb_charge_detail t
+  group by  t.orgid,t.orgname,t.visitid,t.itemname,t.chargeclass
+) distributed by (visitid,orgid);
+ -- 加分区加索引
+CREATE INDEX idx_detail_set ON t_detail_set using btree (visitid,orgid);
+
+--收费明细
+drop TABLE if EXISTS t_settlement_set;
+create table t_settlement_set as (
+  select t.visitid,t.orgid,t.orgname ,sum(t.fundpay) as fundpay,
+  substr(cast(max(t.settlementdate) as VARCHAR),1,4) as yyear
+  from src_yb_settlement t where fundpay>0
+  group by t.visitid,t.orgid,t.orgname
+) distributed by (visitid,orgid);
+ -- 加分区加索引
+CREATE INDEX idx_settlement_set ON t_settlement_set using btree (visitid,orgid);
+
+-- 定明细表取值 + 结算表费用 取值联合表
+drop TABLE if EXISTS t_detail_settlement_set;
+create table t_detail_settlement_set as (
+  select t1.visitid,t1.orgid,t1.orgname,t1.itemType,t1.fee,t1.chargeclass,t1.itemname
+  from t_detail_set t1 inner join t_settlement_set t2
+  on t1.visitid = t2.visitid and t1.orgid = t2.orgid
+  group by t1.visitid,t1.orgid,t1.orgname,t1.itemType,t1.fee,t1.chargeclass,t1.itemname
+) distributed by (visitid,orgid);
+
+ -- 加分区加索引
+CREATE INDEX idx_de_settlement_set ON t_detail_settlement_set using btree (visitid,orgid);
+
+-- 定义master主表查询数据集
+drop TABLE if EXISTS t_master_query;
+create table t_master_query as (
+  select substr(cast(visitdate as VARCHAR),1,4) as yyear,t.orgid,t.orgname,t.visitid,
+  (case when t.visittype ~ '住院' then '住院' else '门诊' end) as visittype,t2.local_tag
+  from src_yb_master_info t
+  left join ods_checkorg_list t2 on t2.orgid = t.orgid
+  and t2.orgname = t.orgname
+) distributed by (visitid,orgid);
+ -- 加分区加索引
+CREATE INDEX idx_master_query ON t_master_query using btree (visitid,orgid);
+
+--就诊人次
+drop TABLE if EXISTS t_total_visit_count;
+create table t_total_visit_count as (
+ select t1.orgname,t1.visittype,t1.yyear,count(t1.visitid) as num1
+ FROM(
+  SELECT t.visitid,t.orgname,(case when t.visittype ~ '住院' then '住院' else '门诊' end) as visittype,substr(cast(visitdate as VARCHAR),1,4) as yyear
+    from src_yb_master_info t
+ ) t1
+ GROUP BY t1.orgname,t1.visittype,t1.yyear
+);
+
+--主表+明细表集合
+drop TABLE if EXISTS t_detail_master_set;
+create table t_detail_master_set as (
+ select
+ t1.orgname,t1.yyear,t1.visittype,t1.local_tag,
+ t2.itemType,t2.chargeclass,t2.itemname,
+ count(t1.visitid) as num,
+ sum(t2.fee) as fee
+ FROM t_master_query  t1
+ inner join t_detail_settlement_set t2
+ on t1.visitid = t2.visitid and t1.orgid = t2.orgid
+ GROUP BY t1.orgname,t1.yyear,t1.visittype,t2.itemType,t2.chargeclass,t2.itemname,t1.local_tag
+);
+
+--最终结果集 年度统计指标--医保项目使用率
+drop TABLE if EXISTS dc_org_year_itemcount_yb;
+create table dc_org_year_itemcount_yb as (
+ select t1.*,
+  (case when t2.num1=0 then 0 else round(round((t1.num::numeric/t2.num1::numeric),4)*100,2) end) as userate
+  FROM t_detail_master_set  t1
+ LEFT JOIN t_total_visit_count  t2 on t1.orgname = t2.orgname and t1.yyear = t2.yyear and t1.visittype = t2.visittype
+);
+
+
+drop TABLE if EXISTS t_detail_set;
+drop TABLE if EXISTS t_settlement_set;
+drop TABLE if EXISTS t_detail_settlement_set;
+drop TABLE if EXISTS t_master_query;
+drop TABLE if EXISTS t_total_visit_count;
+drop TABLE if EXISTS t_detail_master_set;
+
+]]></sql>
+</mapper>
+

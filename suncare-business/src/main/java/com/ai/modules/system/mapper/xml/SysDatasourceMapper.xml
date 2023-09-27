@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.system.mapper.SysDatasourceMapper">
+    <insert id="addRoleBatch">
+        UPDATE sys_role
+        SET DATA_SOURCE = case when (DATA_SOURCE is null or DATA_SOURCE='')
+            then #{code}
+            else concat(DATA_SOURCE,',' , #{code}) end
+        where 1=1
+        AND FIND_IN_SET(id,#{ids})
+    </insert>
+
+    <delete id="delRoleBatch">
+        UPDATE sys_role
+        SET
+            DATA_SOURCE=TRIM(BOTH ',' FROM REPLACE(CONCAT(',', DATA_SOURCE, ','), concat(',',#{code},','), ','))
+        where 1=1
+        AND FIND_IN_SET(id,#{ids})
+    </delete>
+
+
+    <select id="getRoleList" resultType="com.ai.modules.system.vo.RoleVo">
+        select t.* from sys_role t
+        <where>
+            t.SYSTEM_CODE = 'search'
+            <if test="query.direction != 'left' and query.code != '' and query.code != null ">
+                and FIND_IN_SET(#{query.code},t.DATA_SOURCE)
+            </if>
+            <if test="query.word != '' and query.word != null">
+                and t.ROLE_NAME like '%${query.word}%'
+            </if>
+            <if test="query.direction != 'right' and query.code != '' and query.code != null ">
+                AND (not FIND_IN_SET(#{query.code},t.DATA_SOURCE) >0 or t.DATA_SOURCE is null)
+            </if>
+        </where>
+
+    </select>
+    <select id="getPage" resultType="com.ai.modules.system.entity.SysDatasource">
+        select *
+        from (select t1.*, t2.DBNAME, t2.CNNAME
+              from sys_datasource t1
+                       left join sys_database t2 on t1.database_source = t2.DBNAME
+             ) a where 1=1
+        <if test="ew.sqlSegment!=null and ew.sqlSegment!=''">
+            and ${ew.sqlSegment}
+        </if>
+
+    </select>
+</mapper>

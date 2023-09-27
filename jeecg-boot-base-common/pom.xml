@@ -1,0 +1,68 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<artifactId>jeecg-boot-base-common</artifactId>
+	<version>2.1.1</version>
+
+	<parent>
+		<groupId>com.ai</groupId>
+		<artifactId>suncare_v3</artifactId>
+		<version>1.0-SNAPSHOT</version>
+	</parent>
+
+	<dependencies>
+			 <dependency>
+			    <groupId>com.itextpdf</groupId>
+			    <artifactId>itextpdf</artifactId>
+			    <version>5.5.9</version>
+			</dependency>
+			<dependency>
+				<groupId>com.aspose</groupId>
+				<artifactId>aspose-words</artifactId>
+				<version>15.8.0</version>
+				<scope>system</scope>
+				<systemPath>${basedir}/lib/aspose-words-15.8.0-jdk16.jar</systemPath>
+			</dependency>
+			<dependency>
+				<groupId>e-iceblue</groupId>
+				<artifactId>spire.xls.free</artifactId>
+				<version>4.9.0</version>
+				<scope>system</scope>
+				<systemPath>${basedir}/lib/Spire.Xls.jar</systemPath>
+			</dependency>
+	</dependencies>
+
+	<repositories>
+		<repository>
+			<id>aliyun</id>
+			<name>aliyun Repository</name>
+			<url>http://maven.aliyun.com/nexus/content/groups/public</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+		<repository>
+			<id>jeecg</id>
+			<name>jeecg Repository</name>
+			<url>http://maven.jeecg.org/nexus/content/repositories/jeecg</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<!--<classifier>exec</classifier>-->
+					<skip>true</skip>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

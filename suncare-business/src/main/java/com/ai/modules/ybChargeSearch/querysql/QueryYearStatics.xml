@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+
+<!-- 年度统计报表 医保 -->
+<sql id="querySql_YB"><![CDATA[
+--收费明细
+with settlement_set as (
+  select visitid,orgid,orgname ,sum(totalfee) as totalfee,sum(fundpay) as fundpay,substr(settlementdate,1,4) as yyear
+  --${ODS} ,t.orgname_src
+  from src_yb_settlement t where 1=1
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  -- 不包含自费就诊记录 ${fundpayonly} --${NOTGY}
+  and fundpay>0  -- ${fundpayonly} --${NOTGY}
+  and indiv_acct_pay>0  --${GY}
+  and settlementdate>='${yearStart}'
+  and settlementdate<='${yearEnd}'
+  group by visitid,orgid,orgname ,substr(settlementdate,1,4)
+  --${ODS} ,t.orgname_src
+)
+SELECT t.orgname , yyear,
+  --${ODS} t.orgname_src,
+  count(*) as total_count,
+  nvl(sum(case when t.visittype like '%住院%' then 1 end),0) as zy_count,
+  nvl(sum(case when t.visittype like '%门诊%' then 1 end),0) as mz_count,
+  nvl(sum(case when t.visittype like '%药%' then 1 end),0) as gy_count,
+  sum(t1.totalfee) as sum_totalfee,
+  sum(t1.fundpay) as sum_fundpay
+from src_yb_master_info t  inner join settlement_set t1
+  on t.visitid=t1.visitid and t.orgid=t1.orgid
+  --${ODS} and t.orgname_src=t1.orgname_src
+  where 1=1
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  GROUP BY  t.orgname,yyear
+  --${ODS} ,t.orgname_src
+  order by ${orderby}
+]]></sql>
+
+
+<!-- 年度统计报表 医院HIS来源 -->
+<sql id="querySql_HIS"><![CDATA[
+-- 门诊数据
+with settlement_set_mz as (
+  select orgid,orgname, substr(settlementdate,1,4) as yyear, 0 as zy_count,count(1) as mz_count,
+  sum(totalfee) as totalfee,sum(fundpay) as fundpay
+  --${ODS} ,t.orgname_src
+ from src_his_mz_settlement t where 1=1
+  -- 不包含自费就诊记录 ${fundpayonly}
+  and fundpay>0  --${fundpayonly}
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and settlementdate>='${yearStart}'
+  and settlementdate<='${yearEnd}'
+  group by orgid,orgname ,substr(settlementdate,1,4)
+  --${ODS} ,t.orgname_src
+)
+-- 住院数据
+, settlement_set_zy as (
+  select orgid,orgname , substr(settlementdate,1,4) as yyear, count(1) as zy_count,0 as mz_count,
+  sum(totalfee) as totalfee,sum(fundpay) as fundpay
+  --${ODS} ,t.orgname_src
+ from src_his_zy_settlement t where 1=1
+  -- 不包含自费就诊记录 ${fundpayonly}
+  and fundpay>0 --${fundpayonly}
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and settlementdate>='${yearStart}'
+  and settlementdate<='${yearEnd}'
+  group by orgid,orgname ,substr(settlementdate,1,4)
+  --${ODS} ,t.orgname_src
+)
+-- 总的数据
+select  t.orgname,t.yyear, count(*) as total_count,
+  --${ODS} t.orgname_src,
+  sum(zy_count) as zy_count,
+  sum(mz_count) as mz_count,
+  sum(t.totalfee) as sum_totalfee,
+  sum(t.fundpay) as sum_fundpay
+from (
+  select * from settlement_set_mz union all
+  select * from settlement_set_zy
+) t group by   t.orgname
+  --${ODS} ,t.orgname_src
+  ,t.yyear
+  order by ${orderby}
+]]></sql>
+</mapper>

@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.task.mapper.TaskBatchBreakRuleMapper">
+
+    <select id="listByType" resultType="com.ai.modules.task.vo.TaskBatchBreakRuleVO">
+        <choose>
+            <when test="type=='01'">
+                select t.*,t1.BUSI_ID code,t1.BUSI_NAME name from TASK_BATCH_BREAK_RULE t
+                LEFT JOIN MEDICAL_FORMAL_BUSI t1 on t.RULE_ID = t1.BUSI_ID AND t1.BUSI_STATUS = 'normal'
+            </when>
+            <when test="type=='11'">
+                select t.*,t1.CASE_ID code,t1.CASE_NAME name from TASK_BATCH_BREAK_RULE t
+                LEFT JOIN MEDICAL_FORMAL_CASE t1 on t.RULE_ID=t1.CASE_ID and t1.CASE_STATUS='normal'
+            </when>
+            <when test="type=='02'">
+                select t.*,t1.DRUG_CODE code,t1.DRUG_NAMES name from TASK_BATCH_BREAK_RULE t
+                LEFT JOIN MEDICAL_DRUG_RULE t1 on t.RULE_ID=t1.RULE_ID
+            </when>
+            <when test="type=='03'">
+                select t.*,t1.CHARGE_ITEM_CODES code,t1.CHARGE_ITEMS name from TASK_BATCH_BREAK_RULE t
+                LEFT JOIN MEDICAL_DRUG_RULE t1 on t.RULE_ID=t1.RULE_ID
+            </when>
+            <when test="type=='04'">
+                select t.*,t1.DISEASE_CODES code,t1.DISEASE_NAMES name from TASK_BATCH_BREAK_RULE t
+                LEFT JOIN MEDICAL_DRUG_RULE t1 on t.RULE_ID=t1.RULE_ID
+            </when>
+            <when test="type=='06'">
+                select t.*,t1.CLINICAL_CODE code,t1.CLINICAL_NAME name from TASK_BATCH_BREAK_RULE t
+                LEFT JOIN MEDICAL_CLINICAL t1 on t.RULE_ID=t1.CLINICAL_ID
+            </when>
+            <when test="type=='07'">
+                select t.*,t1.CHARGE_ITEM_CODES code,t1.CHARGE_ITEMS name from TASK_BATCH_BREAK_RULE t
+                LEFT JOIN MEDICAL_DRUG_RULE t1 on t.RULE_ID=t1.RULE_ID
+            </when>
+            <!--<when test="type=='08'">
+                select t.*,t1.ITEM_CODES code,t1.ITEM_NAMES name from TASK_BATCH_BREAK_RULE t
+                LEFT JOIN MEDICAL_DRUGUSE t1 on t.RULE_ID=t1.RULE_ID
+            </when>-->
+            <!--<when test="type=='09'">
+                select t.*,t1.ITEM_CODES code,t1.ITEM_NAMES name from TASK_BATCH_BREAK_RULE t
+                ,MEDICAL_RULE_CONFIG t1 where t.RULE_ID=t1.RULE_ID
+            </when>-->
+            <otherwise>
+                select t.*,t1.ITEM_CODES code,t1.ITEM_NAMES name from TASK_BATCH_BREAK_RULE t
+                LEFT JOIN MEDICAL_RULE_CONFIG t1 on t.RULE_ID=t1.RULE_ID
+            </otherwise>
+        </choose>
+
+        where t.RULE_TYPE=#{type} and ${ew.sqlSegment}
+
+    </select>
+
+    <select id="listByTypeHis" resultType="com.ai.modules.task.vo.TaskBatchBreakRuleVO">
+        <choose>
+            <when test="type=='01'">
+                select t.*,t1.BUSI_ID code,t1.BUSI_NAME name from TASK_BATCH_BREAK_RULE t
+                left join HIS_MEDICAL_FORMAL_BUSI t1 on t.RULE_ID=t1.BUSI_ID AND t1.BATCH_ID = t.BATCH_ID
+                <!--<if test="inFormal">
+                    and EXISTS ( SELECT 1 from MEDICAL_FORMAL_BUSI t2 WHERE t1.BUSI_ID = t2.BUSI_ID and t2.BUSI_STATUS='normal')
+                </if>-->
+            </when>
+            <when test="type=='11'">
+                select t.*,t1.CASE_ID code,t1.CASE_NAME name from TASK_BATCH_BREAK_RULE t
+                left join HIS_MEDICAL_FORMAL_CASE t1 on t.RULE_ID=t1.CASE_ID AND t1.BATCH_ID = t.BATCH_ID
+            </when>
+            <when test="type=='02'">
+                select t.*,t1.DRUG_CODE code,t1.DRUG_NAMES name from TASK_BATCH_BREAK_RULE t
+                left join MEDICAL_DRUG_RULE t1 on t.RULE_ID=t1.RULE_ID
+            </when>
+            <when test="type=='03'">
+                select t.*,t1.CHARGE_ITEM_CODES code,t1.CHARGE_ITEMS name from TASK_BATCH_BREAK_RULE t
+                left join MEDICAL_DRUG_RULE t1 on t.RULE_ID=t1.RULE_ID
+            </when>
+            <when test="type=='04'">
+                select t.*,t1.DISEASE_CODES code,t1.DISEASE_NAMES name from TASK_BATCH_BREAK_RULE t
+                left join MEDICAL_DRUG_RULE t1 on t.RULE_ID=t1.RULE_ID
+            </when>
+            <when test="type=='06'">
+                select t.*,t1.CLINICAL_CODE code,t1.CLINICAL_NAME name from TASK_BATCH_BREAK_RULE t
+                left join MEDICAL_CLINICAL t1 on t.RULE_ID=t1.CLINICAL_ID
+            </when>
+            <when test="type=='07'">
+                select t.*,t1.CHARGE_ITEM_CODES code,t1.CHARGE_ITEMS name from TASK_BATCH_BREAK_RULE t
+                left join MEDICAL_DRUG_RULE t1 on t.RULE_ID=t1.RULE_ID
+            </when>
+           <!-- <when test="type=='08'">
+                select t.*,t1.ITEM_CODES code,t1.ITEM_NAMES name from TASK_BATCH_BREAK_RULE t
+                left join MEDICAL_DRUGUSE t1 on t.RULE_ID=t1.RULE_ID
+            </when>-->
+           <!-- <when test="type=='09'">
+                select t.*,t1.ITEM_CODES code,t1.ITEM_NAMES name from TASK_BATCH_BREAK_RULE t
+                ,MEDICAL_RULE_CONFIG t1 where t.RULE_ID=t1.RULE_ID
+            </when>-->
+            <otherwise>
+                select t.*,t1.ITEM_CODES code,t1.ITEM_NAMES name from TASK_BATCH_BREAK_RULE t
+                left join MEDICAL_RULE_CONFIG t1 on t.RULE_ID=t1.RULE_ID
+            </otherwise>
+        </choose>
+        where t.RULE_TYPE=#{type} and ${ew.sqlSegment}
+
+    </select>
+
+    <select id="listInFormalByType" resultType="com.ai.modules.task.vo.TaskBatchBreakRuleVO">
+        <choose>
+            <when test="type=='01'">
+                select t1.BUSI_ID rule_id,t1.BUSI_ID code,t1.BUSI_NAME name
+                from MEDICAL_FORMAL_BUSI t1 where t1.BUSI_STATUS='normal' and t1.BUSI_ID
+            </when>
+            <when test="type=='11'">
+                select t1.CASE_ID rule_id,t1.CASE_ID code,t1.CASE_NAME name
+                from MEDICAL_FORMAL_CASE t1 where t1.CASE_STATUS='normal' and t1.CASE_ID
+            </when>
+            <when test="type=='02'">
+                select t1.RULE_ID,t1.DRUG_CODE code,t1.DRUG_NAMES name from
+                MEDICAL_DRUG_RULE t1 where t1.RULE_ID
+            </when>
+            <when test="type=='03'">
+                select t1.RULE_ID,t1.CHARGE_ITEM_CODES code,t1.CHARGE_ITEMS name from
+                MEDICAL_DRUG_RULE t1 where t1.RULE_ID
+            </when>
+            <when test="type=='04'">
+                select t1.RULE_ID,t1.DISEASE_CODES code,t1.DISEASE_NAMES name from
+                MEDICAL_DRUG_RULE t1 where t1.RULE_ID
+            </when>
+            <when test="type=='06'">
+                select t.CLINICAL_ID rule_id,t1.CLINICAL_CODE code,t1.CLINICAL_NAME name from
+                MEDICAL_CLINICAL t1 where t1.CLINICAL_ID
+            </when>
+            <when test="type=='07'">
+                select t1.RULE_ID,t1.CHARGE_ITEM_CODES code,t1.CHARGE_ITEMS name from
+                MEDICAL_DRUG_RULE t1 where t1.RULE_ID
+            </when>
+           <!-- <when test="type=='08'">
+                select t1.RULE_ID,t1.ITEM_CODES code,t1.ITEM_NAMES name from
+                MEDICAL_DRUGUSE t1 where t1.RULE_ID
+            </when>-->
+            <!--<when test="type=='09'">
+                select t1.RULE_ID,t1.ITEM_CODES code,t1.ITEM_NAMES name from
+                MEDICAL_RULE_CONFIG t1 where t1.RULE_ID
+            </when>-->
+            <otherwise>
+                select t1.RULE_ID,t1.ITEM_CODES code,t1.ITEM_NAMES name from
+                MEDICAL_RULE_CONFIG t1 where t1.RULE_ID
+            </otherwise>
+        </choose>
+        in
+        <foreach collection="ruleIds" item="ruleId" index="index" open="(" close=")" separator=",">
+            #{ruleId}
+        </foreach>
+
+    </select>
+
+</mapper>

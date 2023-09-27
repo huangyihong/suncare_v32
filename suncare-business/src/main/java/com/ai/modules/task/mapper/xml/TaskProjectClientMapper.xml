@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.task.mapper.TaskProjectClientMapper">
+    <select id="selectUsersByProject" parameterType="String" resultType="org.jeecg.common.system.vo.LoginUser">
+        SELECT *
+        FROM SYS_USER t
+        WHERE EXISTS(
+                      SELECT 1
+                      FROM TASK_PROJECT_CLIENT t1
+                      WHERE t1.PROJECT_ID = #{projectId}
+                        AND t1.USER_ID = t.ID
+                  )
+    </select>
+
+    <select id="selectProjectByUser" parameterType="String" resultType="com.ai.modules.task.entity.TaskProject">
+        SELECT *
+        FROM TASK_PROJECT t
+        WHERE EXISTS(
+                      SELECT 1
+                      FROM TASK_PROJECT_CLIENT t1
+                      WHERE t1.PROJECT_ID = t.PROJECT_ID
+                        AND t1.USER_ID = #{userId}
+                  )
+    </select>
+</mapper>

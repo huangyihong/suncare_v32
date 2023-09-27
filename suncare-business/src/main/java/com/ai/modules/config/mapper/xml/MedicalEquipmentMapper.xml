@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.config.mapper.MedicalEquipmentMapper">
+    <select id="queryCodeNameIdInCodes" resultMap="com.ai.modules.config.vo.mybatis-plus_MedicalCodeNameVO">
+        select t.PRODUCTCODE CODE,t.ID,t.PRODUCTNAME NAME from
+        MEDICAL_EQUIPMENT t where t.state ='1' and t.PRODUCTCODE
+        in
+        <foreach collection="codes" item="code" index="index" open="(" close=")" separator=",">
+            #{code}
+        </foreach>
+        order by t.PRODUCTCODE
+    </select>
+</mapper>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+    <sql id="ruleBlackList"><![CDATA[
+with tmp_detail as (
+ --满足准入条件的项目明细
+ select visitid,orgid,orgname,substr(chargedate,1,10) charge,nvl(chargeattri,'') as chargeattri,his_itemname,itemname,itemcode,
+ sum(amount) as sl, sum(fee) fy
+ from src_yb_charge_detail x where 1=1
+ and orgname rlike '${orgname}'
+ and orgid in ${orgid}
+ and itemname = '${itemname}'
+ and visitid rlike '${visitid}'
+ -- 不包含自费明细  --
+ and exists(select 1 from src_yb_settlement t where x.visitid=t.visitid and x.orgid=t.orgid and t.fundpay>0)
+ and visitid in(select visitid from src_yb_master_info m where 1=1
+ and m.visitdate>='${startDate}'
+ and m.visitdate<='${endDate}'
+ and m.visittype rlike '${visittype}'
+ and m.case_id rlike '${caseid}'
+ and m.leavedate>='${leaveStartDate}'
+ and m.leavedate<='${leaveEndDate}'
+ and m.clientname rlike '${clientname}'
+ and m.id_no rlike '${idNo}'
+ )
+ group by visitid,orgid,orgname,substr(chargedate,1,10),chargeattri,his_itemname,itemname,itemcode
+),
+table_detail as (
+ --项目明细黑名单
+ select x.* from tmp_detail x
+ where visitid not in(
+ select visitid from src_yb_master_info y where ${where}
+ )
+),
+table_diag as (
+  --查询疾病名称
+  select orgid,orgname,visitid,
+  group_concat(distinct case when not(diag.primarydiag_sign='1' or diag.primarydiag_sign='主诊断') then diseasename end,'_') as dis,
+  group_concat(case when diag.primarydiag_sign='1' or diag.primarydiag_sign='主诊断' then diseasename end ,'_') as dis_main
+  from src_yb_diag diag
+  where diag.visitid in(select visitid from table_detail)
+  GROUP BY orgid,orgname,visitid
+)
+ --查询结果
+ select x.*,
+  substr(y.visitdate,1,4) as yyear,y.case_id,y.doctorname,y.deptname,y.visittype,
+  concat(trim(y.clientname), substr(y.birthday,1,10)) as name,sex,
+  substr(y.visitdate,1,10) as visitdate,substr(y.leavedate,1,10) as leavedate,
+  months_between(y.visitdate, y.birthday)/12 yearage,
+  diag.dis,diag.dis_main
+  from table_detail x join src_yb_master_info y on x.visitid=y.visitid
+  left join table_diag diag on x.visitid=diag.visitid and x.orgid=diag.orgid
+    ]]></sql>
+</mapper>

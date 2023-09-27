@@ -1,0 +1,4 @@
+# Project exclude paths
+/jeecg-boot-base-common/target/
+/jeecg-boot-module-system/target/
+/suncare-business/target/

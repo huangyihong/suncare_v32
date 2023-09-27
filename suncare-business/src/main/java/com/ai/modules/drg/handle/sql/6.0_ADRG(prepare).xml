@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 6.ADRG组（准备数据） -->
+<mapper>
+    <sql id="script"><![CDATA[
+drop table if exists medical_gbdp.t_visit_mdc_has_shoushu_${seq};
+create table medical_gbdp.t_visit_mdc_has_shoushu_${seq} as(
+--存在手术的mdc
+select * from medical_gbdp.medical_visit_mdc a
+where
+    a.mdc!='MDCA'
+	and exists(
+	select 1 from medical_gbdp.t_visit_shoushu_${seq} b where a.visitid=b.visitid and a.orgid=b.orgid)
+	and a.batch_id='${batchId}'
+) distributed by (visitid,orgid);
+create index t_visit_mdc_has_shoushu_${seq}_idx1 on medical_gbdp.t_visit_mdc_has_shoushu_${seq} using btree (visitid, orgid);
+    ]]></sql>
+</mapper>

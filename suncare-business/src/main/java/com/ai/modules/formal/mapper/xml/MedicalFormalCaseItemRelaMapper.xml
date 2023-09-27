@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.formal.mapper.MedicalFormalCaseItemRelaMapper">
+
+    <select id="listVoByBatchId" resultType="com.ai.modules.formal.vo.MedicalFormalCaseItemRelaVO">
+        SELECT t.*, t1.CASE_NAME
+        FROM MEDICAL_FORMAL_CASE_ITEM_RELA t
+                 JOIN MEDICAL_FORMAL_CASE t1 ON t.CASE_ID = t1.CASE_ID
+                 JOIN HIS_MEDICAL_FORMAL_CASE t2 ON t.CASE_ID = t2.CASE_ID AND T2.BATCH_ID = #{batchId}
+
+    </select>
+
+    <select id="listVoByBatchIdAndCaseIds" resultType="com.ai.modules.formal.vo.MedicalFormalCaseItemRelaVO">
+        SELECT t.*
+        FROM MEDICAL_FORMAL_CASE_ITEM_RELA t
+                 JOIN HIS_MEDICAL_FORMAL_CASE t2 ON
+                     t.CASE_ID = t2.CASE_ID
+                         AND T2.BATCH_ID = #{batchId}
+                         AND T2.CASE_ID  in
+        <foreach collection="caseIds" item="caseId" index="index" open="(" close=")" separator=",">
+            #{caseId}
+        </foreach>
+
+    </select>
+</mapper>

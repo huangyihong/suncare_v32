@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 9.ADRG组（歧义） -->
+<mapper>
+    <sql id="script"><![CDATA[
+        --QY组
+with t_visit_room_shoushu as(
+--手术室手术病历
+select
+	visitid,
+	orgid,
+	itemcode surgery_code,
+	itemname surgery_name
+from medical_gbdp.t_visit_shoushu_${seq}
+where
+	itemcode in(
+	select code from medical_gbdp.drg_catalog_detail a
+	where a.catalog_id = '${surgeryCatalogId}')
+	and orgid in ${orgid}
+),
+t_medical_visit_mdc as(
+select
+    a.visitid,
+	a.orgid,
+	a.mdc,
+	a.mdc_diag_code,
+	a.mdc_diag_name,
+	regexp_split_to_table(mdc_diag_code, ',') diseasecode,
+	regexp_split_to_table(mdc_diag_name, ',') diseasename
+from medical_gbdp.t_visit_mdc_has_shoushu_${seq} a
+where
+    a.mdc!='MDCA'
+	and exists(
+	select 1 from t_visit_room_shoushu b where a.visitid=b.visitid and a.orgid=b.orgid)
+	and not exists(
+	select 1 from medical_gbdp.medical_visit_adrg c where batch_id='${batchId}' and a.visitid=c.visitid and a.orgid=c.orgid and a.mdc=c.mdc
+	)
+	and a.batch_id='${batchId}'
+)
+insert into medical_gbdp.medical_visit_drg(
+	id,
+	batch_id,
+	visitid,
+	orgid,
+	mdc,
+	mdc_name,
+	adrg,
+	adrg_name,
+	drg,
+	drg_name,
+	drg_step,
+	drg_step_desc,
+	project,
+	drg_diag_code,
+	drg_diag_name,
+	drg_surgery_code,
+	drg_surgery_name,
+	created_by,
+	created_by_name,
+	created_time)
+select
+	md5(concat_ws('_', '${batchId}', a.visitid, a.orgid, a.mdc, 'QY', a.diseasecode, c.surgery_code)) id,
+	'${batchId}' batch_id,
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	b.name mdc_name,
+	'QY' adrg,
+	'歧义组' adrg_name,
+	'QY' drg,
+	'歧义组' drg_name,
+	'9',
+	'9.DRG歧义',
+	'${project}',
+	a.diseasecode drg_diag_code,
+	a.diseasename drg_diag_name,
+	c.surgery_code drg_surgery_code,
+	c.surgery_name drg_surgery_name,
+	null created_by,
+	null created_by_name,
+	null created_time
+from
+	t_medical_visit_mdc a
+join medical_gbdp.t_catalog_mdc_${seq} b on a.mdc=b.code
+join t_visit_room_shoushu c on a.visitid=c.visitid and a.orgid=c.orgid;
+    ]]></sql>
+</mapper>

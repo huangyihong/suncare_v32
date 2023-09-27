@@ -1,0 +1,11 @@
+spring:
+  profiles:
+    active: dev
+#    active: prod
+swagger:
+  enable: false
+  production: false
+  basic:
+    enable: false
+    username: admin
+    password: 9527

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.ybFj.mapper.YbFjProjectClueDtlMapper">
+
+    <select id="queryTaskClueVo" resultType="com.ai.modules.ybFj.vo.TaskClueVo">
+        select sum(sl) case_amount, sum(fy) case_fee from yb_fj_project_clue_dtl
+        ${ew.customSqlSegment}
+    </select>
+</mapper>

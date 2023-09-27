@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.medical.mapper.QueryMedicalColumnMapper">
+
+    <select id="queryMedicalCaseColumn" resultType="com.ai.modules.medical.vo.MedicalCaseColumnVO">
+        select a.*, b.table_name, b.col_name
+  from medical_formal_case a
+  join medical_formal_flow_rule b
+    on a.case_id = b.case_id
+ order by a.case_id 
+    </select>
+    
+    <select id="queryMedicalRuleConfigColumn" resultType="com.ai.modules.medical.vo.MedicalRuleConfigColumnVO">
+        select a.item_codes, a.item_names, a.action_id, a.rule_type, a.rule_limit, b.*
+  from medical_rule_config a
+  join medical_rule_condition_set b
+    on a.rule_id = b.rule_id 
+    </select>
+    
+    <select id="queryMedicalDruguseColumn" resultType="com.ai.modules.medical.vo.MedicalDruguseColumnVO">
+        select a.item_codes, a.item_names, a.action_id, a.sex, a.age_unit, b.*
+  from medical_druguse a
+  join medical_rule_condition_set b
+    on a.rule_id = b.rule_id 
+    </select>
+    
+    <select id="queryMedicalRuleRelyDtlByProject" resultType="com.ai.modules.medical.entity.MedicalRuleRelyDtl" parameterType="com.ai.modules.task.entity.TaskProjectBatch">
+ 	select *
+  from MEDICAL_RULE_RELY_DTL x
+ where rule_id in
+       (select rule_id
+          from task_batch_break_rule
+         where batch_id in
+               (select batch_id from task_project_batch
+                 where project_id = #{projectId, jdbcType=VARCHAR}
+                 <if test="etlSource != null and etlSource !=''" >
+				   and etl_source=#{etlSource, jdbcType=VARCHAR}
+				 </if>))
+union
+select *
+  from MEDICAL_RULE_RELY_DTL x
+ where rule_id in
+       (select b.case_id
+          from task_batch_break_rule a join medical_formal_case_busi b on a.rule_id=b.busi_id
+         where batch_id in
+               (select batch_id from task_project_batch
+                 where project_id = #{projectId, jdbcType=VARCHAR}
+                 <if test="etlSource != null and etlSource !=''" >
+				   and etl_source=#{etlSource, jdbcType=VARCHAR}
+				 </if>)) 
+    </select>
+    
+    <select id="queryMedicalRuleRelyDtlByBatch" resultType="com.ai.modules.medical.entity.MedicalRuleRelyDtl" parameterType="com.ai.modules.task.entity.TaskProjectBatch">
+ 	select *
+  from MEDICAL_RULE_RELY_DTL x
+ where rule_id in
+       (select rule_id
+          from task_batch_break_rule
+         where batch_id in
+               (select batch_id from task_project_batch
+                 where project_id = #{projectId, jdbcType=VARCHAR}
+				   and batch_id = #{batchId, jdbcType=VARCHAR}))
+union
+select *
+  from MEDICAL_RULE_RELY_DTL x
+ where rule_id in
+       (select b.case_id
+          from task_batch_break_rule a join medical_formal_case_busi b on a.rule_id=b.busi_id
+         where batch_id in
+               (select batch_id from task_project_batch
+                 where project_id = #{projectId, jdbcType=VARCHAR}
+				   and batch_id = #{batchId, jdbcType=VARCHAR})) 
+    </select>
+</mapper>

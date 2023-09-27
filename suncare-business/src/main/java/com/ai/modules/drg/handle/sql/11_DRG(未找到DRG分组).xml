@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 11未找到DRG分组 -->
+<mapper>
+    <sql id="script">
+        --找到ADRG分组，未找到DRG分组
+        insert into medical_gbdp.medical_visit_drg(
+        id,
+        batch_id,
+        visitid,
+        orgid,
+        mdc,
+        mdc_name,
+        adrg,
+        adrg_name,
+        project,
+        drg_diag_code,
+        drg_diag_name,
+        drg_surgery_code,
+        drg_surgery_name,
+        created_by,
+        created_by_name,
+        created_time)
+        select
+        md5(concat_ws('_', '${batchId}', a.visitid, a.orgid, a.mdc, a.adrg, a.diseasecode, a.surgery_code)) id,
+        '${batchId}' batch_id,
+        a.visitid,
+        a.orgid,
+        a.mdc,
+        a.mdc_name,
+        a.adrg,
+        a.adrg_name,
+        '${project}',
+        a.diseasecode drg_diag_code,
+        a.diseasename drg_diag_name,
+        a.surgery_code drg_surgery_code,
+        a.surgery_name drg_surgery_name,
+        null created_by,
+        null created_by_name,
+        null created_time
+        from
+        medical_gbdp.t_medical_visit_adrg_list_${seq} a
+        where
+        not exists(
+        select
+        1
+        from
+        medical_gbdp.medical_visit_drg b
+        where
+        a.visitid = b.visitid
+        and a.orgid = b.orgid
+        and a.adrg = b.adrg
+        and b.batch_id = '${batchId}')
+        and a.batch_id = '${batchId}';
+        --仅找到MDC分组
+        with t_notfound_drg as(
+        select
+        a.visitid,
+        a.orgid,
+        a.mdc,
+        c.name mdc_name
+        from
+        medical_gbdp.medical_visit_mdc a
+        join medical_gbdp.t_catalog_mdc_${seq} c on a.mdc=c.code
+        where
+        not exists(
+        select
+        1
+        from
+        medical_gbdp.medical_visit_drg b
+        where
+        a.visitid = b.visitid
+        and a.orgid = b.orgid
+        and a.mdc = b.mdc
+        and b.batch_id = '${batchId}')
+        and a.batch_id = '${batchId}'
+        ),
+        t_notfound_drg_list as(
+        select a.*,
+        diag.diseasecode,
+        diag.diseasename,
+        b.itemcode surgery_code,
+        b.itemname surgery_name
+        from t_notfound_drg a
+        join medical_gbdp.t_visit_shoushu_${seq} b on a.visitid=b.visitid and a.orgid=b.orgid
+        join src_his_zy_diag diag on a.visitid=diag.visitid and a.orgid=b.orgid
+        )
+        insert into medical_gbdp.medical_visit_drg(
+        id,
+        batch_id,
+        visitid,
+        orgid,
+        mdc,
+        mdc_name,
+        project,
+        drg_diag_code,
+        drg_diag_name,
+        drg_surgery_code,
+        drg_surgery_name,
+        created_by,
+        created_by_name,
+        created_time)
+        select
+        md5(concat_ws('_', '${batchId}', a.visitid, a.orgid, a.mdc, a.diseasecode, a.surgery_code)) id,
+        '${batchId}' batch_id,
+        a.visitid,
+        a.orgid,
+        a.mdc,
+        a.mdc_name,
+        '${project}',
+        a.diseasecode drg_diag_code,
+        a.diseasename drg_diag_name,
+        a.surgery_code drg_surgery_code,
+        a.surgery_name drg_surgery_name,
+        null created_by,
+        null created_by_name,
+        null created_time
+        from
+        t_notfound_drg_list a;
+    </sql>
+</mapper>

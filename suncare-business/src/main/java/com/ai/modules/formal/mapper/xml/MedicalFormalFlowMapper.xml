@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.formal.mapper.MedicalFormalFlowMapper">
+	<resultMap id="EngineNode" type="com.ai.modules.engine.model.EngineNode" >
+		<result column="NODE_ID" property="nodeId" jdbcType="VARCHAR"/>
+		<result column="NODE_CODE" property="nodeCode" jdbcType="VARCHAR"/>
+		<result column="NODE_NAME" property="nodeName" jdbcType="VARCHAR"/>
+		<result column="NODE_TYPE" property="nodeType" jdbcType="VARCHAR"/>
+		<result column="PREV_NODE_CODE" property="prevNodeCode" jdbcType="VARCHAR"/>
+		<result column="PREV_NODE_CONDITION" property="prevNodeCondition" jdbcType="VARCHAR"/>
+		<result column="ORDER_NO" property="orderNo" jdbcType="INTEGER"/>
+		<result column="PARAM_CODE" property="paramCode" jdbcType="VARCHAR"/>
+	</resultMap>
+	
+	<select id="recursionMedicalFormalFlowByCaseid" parameterType="String" resultMap="EngineNode">
+		SELECT * FROM (
+		SELECT NODE_ID, NODE_CODE, NODE_TYPE, NODE_NAME, PREV_NODE_CODE, PREV_NODE_CONDITION, CASE_ID, ORDER_NO, PARAM_CODE
+		from medical_formal_flow
+		WHERE CASE_ID = #{caseId, jdbcType=VARCHAR})
+		start with node_type='end' connect by prior prev_node_code=node_code
+    </select>
+    
+    <select id="findMedicalFormalFlowByCaseid" parameterType="String" resultMap="EngineNode">
+		SELECT NODE_ID, NODE_CODE, NODE_TYPE, NODE_NAME, PREV_NODE_CODE, PREV_NODE_CONDITION, CASE_ID, ORDER_NO, PARAM_CODE
+		from medical_formal_flow
+		WHERE CASE_ID = #{caseId, jdbcType=VARCHAR}
+    </select>
+</mapper>

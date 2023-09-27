@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.task.mapper.TaskProjectBatchMapper">
+    <select id="selectPageVO" resultType="com.ai.modules.task.vo.TaskProjectBatchVO">
+        SELECT t.*,
+        <!--   (SELECT listagg(STATUS, ',') WITHIN GROUP (ORDER BY ITEM_ID)
+            FROM TASK_BATCH_STEP_ITEM
+            WHERE t.STEP = 1
+              AND BATCH_ID = t.BATCH_ID) STEP1_STATUS -->
+            ( SELECT GROUP_CONCAT(DISTINCT STATUS ORDER BY ITEM_ID) FROM TASK_BATCH_STEP_ITEM WHERE t.STEP = 1 AND BATCH_ID = t.BATCH_ID ) STEP1_STATUS
+        FROM TASK_PROJECT_BATCH t ${ew.customSqlSegment}
+    </select>
+
+    <select id="queryExecTimeById" resultType="java.util.Map">
+        SELECT
+            min( t.CREATE_TIME ) START_TIME,
+            max( t.UPDATE_TIME ) END_TIME
+        FROM
+            ( SELECT i.BATCH_ID, i.CREATE_TIME, i.UPDATE_TIME FROM TASK_BATCH_STEP_ITEM i
+            WHERE i.BATCH_ID = #{batchId} and i.STEP = 1) t
+        GROUP BY
+            t.BATCH_ID
+    </select>
+    <select id="queryExecNumById" resultType="java.util.Map">
+        SELECT
+        <!--                    sum( decode( IS_OVER, 1, 1, 0 ) ) AS END_NUM,-->
+            sum( IF(IS_OVER = 1, 1, 0 ) ) AS END_NUM,
+        <!--                     sum( decode( IS_OVER, 0, 1, 0 ) ) AS RUN_NUM, -->
+            sum( IF(IS_OVER = 0, 1, 0 ) ) AS RUN_NUM
+        FROM
+        <!--                    ( SELECT DECODE( status, 'normal', 1, 0 ) IS_OVER, batch_Id FROM task_batch_break_rule_log-->
+            ( SELECT IF(status = 'normal', 1, 0 ) IS_OVER, batch_Id FROM task_batch_break_rule_log
+              WHERE batch_Id = #{batchId}
+        <!--                      UNION ALL SELECT DECODE( status, 'normal', 1, 0 ) IS_OVER, batch_Id FROM TASK_BATCH_BREAK_RULE_DEL-->
+              UNION ALL SELECT IF(status = 'normal', 1, 0 ) IS_OVER, batch_Id FROM TASK_BATCH_BREAK_RULE_DEL
+              WHERE batch_Id = #{batchId}
+            ) t
+        GROUP BY
+            batch_Id
+    </select>
+
+    <!--    根据运行时间排序获取前几个批次的每个运行类型信息-->
+    <select id="selectTopBatchItems" resultType="com.ai.modules.task.vo.TaskBatchStepItemVO">
+        SELECT t.*,
+               t1.BATCH_NAME,
+               t2.PROJECT_ID,
+               t2.PROJECT_NAME
+        FROM TASK_BATCH_STEP_ITEM t,
+             TASK_PROJECT_BATCH t1,
+             (
+                 SELECT *
+                 FROM (
+                          SELECT i.BATCH_ID,
+                                 i2.PROJECT_ID,
+                                 MAX(i2.PROJECT_NAME) PROJECT_NAME,
+                                 MAX(i.UPDATE_TIME)   UPDATE_TIME
+                          FROM TASK_BATCH_STEP_ITEM i,
+                               TASK_PROJECT_BATCH i1
+                                   JOIN TASK_PROJECT i2 ON i1.PROJECT_ID = i2.PROJECT_ID
+                                   AND i2.DATA_SOURCE = #{dataSource}
+                          WHERE I.BATCH_ID = i1.BATCH_ID
+                          GROUP BY i.BATCH_ID,
+                                   i2.PROJECT_ID
+                          ORDER BY MAX(i.UPDATE_TIME) DESC
+                      ) t_alias
+        <!--                  WHERE ROWNUM <![CDATA[ <= ]]> ${topNum} -->
+                  limit ${topNum}
+             ) t2
+        WHERE t.BATCH_ID = t2.BATCH_ID
+          AND t.BATCH_ID = t1.BATCH_ID
+        <!--          AND instr(t1.RULE_TYPES, t.ITEM_ID) > 0 -->
+          AND locate(t.ITEM_ID, t1.RULE_TYPES) > 0
+        ORDER BY t.BATCH_ID,
+                 t.UPDATE_TIME
+
+    </select>
+    <!--
+
+    SELECT t.*,
+               t2.BATCH_NAME,
+               t2.PROJECT_ID,
+               t2.PROJECT_NAME
+        FROM TASK_BATCH_STEP_ITEM t,
+             (
+                 SELECT *
+                 FROM (
+                          SELECT i.BATCH_ID,
+                                 i1.BATCH_NAME,
+                                 i2.PROJECT_ID,
+                                 i2.PROJECT_NAME,
+                                 MAX(i.UPDATE_TIME) UPDATE_TIME
+                          FROM TASK_BATCH_STEP_ITEM i,
+                               TASK_PROJECT_BATCH i1
+                                   JOIN TASK_PROJECT i2 ON i1.PROJECT_ID = i2.PROJECT_ID
+                                   AND i2.DATA_SOURCE = #{dataSource}
+                          WHERE I.BATCH_ID = i1.BATCH_ID
+                          GROUP BY i.BATCH_ID,
+                                   i2.PROJECT_ID,
+                                   i2.PROJECT_NAME,
+                                   i1.BATCH_NAME
+                          ORDER BY MAX(i.UPDATE_TIME) DESC
+                      )
+                 WHERE ROWNUM <![CDATA[ <= ]]> ${topNum}
+             ) t2
+        WHERE t.BATCH_ID = t2.BATCH_ID
+        ORDER BY t.BATCH_ID,
+                 t.UPDATE_TIME
+
+    -->
+    <select id="queryBatchByProjectOrDs" resultType="com.ai.modules.task.entity.TaskProjectBatch">
+        select t.* from TASK_PROJECT_BATCH t, TASK_PROJECT t1 where t.PROJECT_ID = t1.PROJECT_ID
+          and (
+        <if test="dsArray != null">
+            t1.DATA_SOURCE in
+            <foreach collection="dsArray" item="ds" index="index" open="(" close=")" separator=",">
+                #{ds}
+            </foreach>
+        </if>
+        <if test="pjArray != null">
+            <if test="dsArray != null">
+            or
+            </if>
+            t1.PROJECT_ID in
+            <foreach collection="pjArray" item="pj" index="index" open="(" close=")" separator=",">
+                #{pj}
+            </foreach>
+        </if>
+            )
+    </select>
+</mapper>

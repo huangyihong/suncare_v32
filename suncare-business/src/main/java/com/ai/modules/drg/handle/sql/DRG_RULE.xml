@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+    <sql id="adrgScript"><![CDATA[
+        --ADRG规则限制条件
+drop table if exists medical_gbdp.t_visit_adrg_white_${seq};
+create table medical_gbdp.t_visit_adrg_white_${seq} as(
+--adrg规则白名单
+select
+	*
+from
+	src_his_zy_master_info a
+where
+	exists(select 1 from medical_gbdp.medical_visit_adrg b
+	where a.visitid=b.visitid
+		and a.orgid=b.orgid
+		and b.batch_id='${batchId}'
+		and b.adrg = '${adrg}'
+	)
+	and ${where}
+) distributed by (visitid,orgid);
+create index t_visit_adrg_white_${seq}_idx1 on medical_gbdp.t_visit_adrg_white_${seq} using btree (visitid, orgid);
+
+delete from medical_gbdp.medical_visit_adrg a
+where
+	not exists(select 1 from medical_gbdp.t_visit_adrg_white_${seq} b
+	where a.visitid=b.visitid and a.orgid=b.orgid)
+	and batch_id='${batchId}'
+	and adrg='${adrg}';
+    ]]></sql>
+
+    <sql id="drgScript"><![CDATA[
+        --DRG规则限制条件
+drop table if exists medical_gbdp.t_visit_drg_white_${seq};
+create table medical_gbdp.t_visit_drg_white_${seq} as(
+--drg规则白名单
+select
+	*
+from
+	src_his_zy_master_info a
+where
+	exists(select 1 from medical_gbdp.medical_visit_drg b
+	where a.visitid=b.visitid
+		and a.orgid=b.orgid
+		and b.batch_id='${batchId}'
+		and b.drg = '${drg}'
+	)
+	and ${where}
+) distributed by (visitid,orgid);
+create index t_visit_drg_white_${seq}_idx1 on medical_gbdp.t_visit_drg_white_${seq} using btree (visitid, orgid);
+
+delete from medical_gbdp.medical_visit_drg a
+where
+	not exists(select 1 from medical_gbdp.t_visit_drg_white_${seq} b
+	where a.visitid=b.visitid and a.orgid=b.orgid)
+	and batch_id='${batchId}'
+	and drg='${drg}';
+    ]]></sql>
+</mapper>

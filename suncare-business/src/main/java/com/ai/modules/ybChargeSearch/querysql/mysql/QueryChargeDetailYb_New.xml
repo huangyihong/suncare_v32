@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mapper>
+<!-- 没有项目名称或者只有1个项目名称 -->
+<sql id="query_first_itemname"><![CDATA[
+-- 项目1的查询结果
+drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as (
+  select t.* ,t2.charge,t2.his_itemname, t2.itemname,t2.itemcode,
+  t2.chargeattri,t2.selfpay_prop,t2.sl,t2.fy ,t2.itemprice,
+  concat(NULL,NULL) as biaozhi
+  from
+  (
+    select yyear,orgid,orgname,visitid, case_id,doctorname,deptname,visittype,insurancetypename,
+    name,sex,visitdate,leavedate,yearage,dis_all as dis, zy_days as visitdays ,
+    dis_primary as dis_main from dc_src_yb_master_diag_settl  where 1=1
+    and orgid in (${orgid})
+    --${NOORGID} and orgname rlike '${orgname}'
+    and visitid in (${visitid_in})
+    and doctorname rlike '${doctorname}'
+    and visittype_code='MM'  --${MM}
+    and visittype_code='ZY'  --${ZY}
+    and visittype_code='GY'  --${GY}
+    and case_id rlike '${case_id}'
+    and name like '${clientname}%'
+    and id_no in (${idNo_in})
+    and leavedate>='${leaveDateStart}'
+    and leavedate<='${leaveDateEnd}'
+    ) t
+    inner join
+    ( select orgid,visitid, chargedate as charge,his_itemname,
+    itemname,itemcode,chargeattri,selfpay_prop,sl,fy ,itemprice
+    from dc_src_yb_charge_detail where 1=1
+    and orgid in (${orgid})
+    --${NOORGID} and orgname rlike '${orgname}'
+    and visitid in (${visitid_in})
+    and paytype='funpay'  --${fundpayonly} --${NOTGY}
+    and paytype='gy'  --${GY} 购药
+    and chargedate>='${dateStart}'
+    and chargedate<='${dateEnd}'
+    and chargedate>='${itemChargedateStart}'
+    and chargedate<='${itemChargedateEnd}'
+    and itemname rlike '${itemname}'
+    and his_itemname rlike '${his_itemname}'
+    and sl>${itemcount} -- 一天使用量不超过${itemcount}次
+    ) t2
+    on t.orgid = t2.orgid and t.visitid = t2.visitid
+
+    limit ${limitCount}
+) ;
+]]></sql>
+
+<sql id="add_index_for_first_itemname"><![CDATA[
+-- 为第一个结果表增加索引
+CREATE INDEX idx_t_dc_result1_${sqlSeq} ON medical_gbdp.t_dc_result_${sqlSeq}  (visitid,orgid);
+]]></sql>
+
+<!-- 2个项目名称的查询 -->
+<sql id="query_second_itemname"><![CDATA[
+-- 项目2的查询结果结果
+drop TABLE if EXISTS medical_gbdp.t_detail_presearch_2_${sqlSeq};
+create table medical_gbdp.t_detail_presearch_2_${sqlSeq} as (
+    select  t.* ,t2.charge,t2.his_itemname, t2.itemname,t2.itemcode,
+    t2.chargeattri,t2.selfpay_prop,t2.sl,t2.fy ,t2.itemprice
+    from
+    (
+     select yyear,orgid,orgname,visitid, case_id,doctorname,deptname,visittype,insurancetypename,
+     name,sex,visitdate,leavedate,yearage,dis_all as dis, zy_days as visitdays ,
+     dis_primary as dis_main from dc_src_yb_master_diag_settl where 1=1
+     and orgid in (${orgid})
+     --${NOORGID} and orgname rlike '${orgname}'
+     and visitid in (${visitid_in})
+     and doctorname rlike '${doctorname}'
+     and visittype_code='MM'  --${MM}
+     and visittype_code='ZY'  --${ZY}
+     and visittype_code='GY'  --${GY}
+     and case_id rlike '${case_id}'
+     and name like '${clientname}%'
+     and id_no in (${idNo_in})
+     and leavedate>='${leaveDateStart}'
+     and leavedate<='${leaveDateEnd}'
+    ) t
+    inner join
+    (select orgid,visitid, chargedate as charge,his_itemname,
+    itemname,itemcode,chargeattri,selfpay_prop,sl,fy,itemprice
+    from dc_src_yb_charge_detail where 1=1
+    and orgid in (${orgid})
+    --${NOORGID} and orgname rlike '${orgname}'
+    and visitid in (${visitid_in})
+    and paytype='funpay'  --${fundpayonly} --${NOTGY}
+    and paytype='gy'  --${GY} 购药
+    and chargedate>='${dateStart}'
+    and chargedate<='${dateEnd}'
+    and chargedate>='${itemChargedateStart}'
+    and chargedate<='${itemChargedateEnd}'
+    and itemname rlike '${itemname1}'
+    and his_itemname rlike '${his_itemname1}'
+    and sl>${itemcount} -- 一天使用量不超过${itemcount}次
+    ) t2
+    on t.orgid = t2.orgid and t.visitid = t2.visitid
+
+    limit ${limitCount}
+) ;
+
+-- 为第二个结果表加索引
+CREATE INDEX idx_t_detail_presearch_2_${sqlSeq} ON medical_gbdp.t_detail_presearch_2_${sqlSeq}  (visitid,orgid);
+
+]]></sql>
+
+
+<!-- 2个项目名称的查询，项目A存在，项目B存在属于违规 -->
+<sql id="query_haveb_weigui"><![CDATA[
+-- 从A表中删除同一个机构ID 和同一个就诊ID（同一天） 在B表中不存在记录的
+delete from medical_gbdp.t_dc_result_${sqlSeq} t1 where not exists(
+    select 1 from medical_gbdp.t_detail_presearch_2_${sqlSeq} t2
+    where t1.visitid=t2.visitid and t1.orgid=t2.orgid
+    --${ONE_DAY} and t1.charge=t2.charge
+);
+
+-- 将B表中满足 同一个机构ID 和同一个就诊ID（同一天） 在A表中存在记录的,插入A表
+insert into medical_gbdp.t_dc_result_${sqlSeq}
+    (yyear,orgid,orgname,visitid, case_id,doctorname,deptname,visittype,insurancetypename,
+    name,sex,visitdate,leavedate,yearage,dis,visitdays ,dis_main,
+    charge,his_itemname,itemname,itemcode, chargeattri,selfpay_prop,sl,fy ,itemprice)
+    ( select yyear,orgid,orgname,visitid, case_id,doctorname,deptname,visittype,insurancetypename,
+      name,sex,visitdate,leavedate,yearage,dis,visitdays ,dis_main,
+      charge,his_itemname,itemname,itemcode, chargeattri,selfpay_prop,sl,fy ,itemprice
+      from medical_gbdp.t_detail_presearch_2_${sqlSeq} t1 where exists (
+       select 1 from medical_gbdp.t_dc_result_${sqlSeq} t2
+       where t1.visitid=t2.visitid and t1.orgid=t2.orgid
+       --${ONE_DAY} and t1.charge=t2.charge
+      )
+    );
+]]></sql>
+
+
+<!-- 2个项目名称的查询，项目A存在，项目B不存在属于违规 -->
+<sql id="query_nothaveb_weigui"><![CDATA[
+/*
+-- 把A表中标注同一个机构ID 和同一个就诊ID（同一天） 在B表中存在记录的 数据为 不违规
+update medical_gbdp.t_dc_result_${sqlSeq} t1 set biaozhi='不违规' where exists(
+    select 1 from medical_gbdp.t_detail_presearch_2_${sqlSeq} t2
+    where t1.visitid=t2.visitid and t1.orgid=t2.orgid
+    --${ONE_DAY} and t1.charge=t2.charge
+);
+
+-- 将A表中的 不标注 不违规 的数据，设置成 涉嫌违规 （这批数据在B表不存在）
+update medical_gbdp.t_dc_result_${sqlSeq} t1 set biaozhi='涉嫌违规'
+where biaozhi<>'不违规' or biaozhi is null ;
+
+-- 将B表中满足 同一个机构ID 和同一个就诊ID（同一天） 在A表中存在记录的,插入A表 ，标志为 不违规
+insert into medical_gbdp.t_dc_result_${sqlSeq}
+    (yyear,orgid,orgname,visitid, case_id,doctorname,deptname,visittype,insurancetypename,
+    name,sex,visitdate,leavedate,yearage,dis,visitdays ,dis_main,charge,his_itemname,
+    itemname,itemcode, chargeattri,selfpay_prop,sl,fy ,itemprice ,biaozhi)
+    ( select yyear,orgid,orgname,visitid, case_id,doctorname,deptname,visittype,insurancetypename,
+      name,sex,visitdate,leavedate,yearage,dis,visitdays ,dis_main,charge,his_itemname,
+      itemname,itemcode, chargeattri,selfpay_prop,sl,fy ,itemprice, '不违规' as biaozhi
+      from medical_gbdp.t_detail_presearch_2_${sqlSeq} t1 where exists (
+       select 1 from medical_gbdp.t_dc_result_${sqlSeq} t2
+       where t1.visitid=t2.visitid and t1.orgid=t2.orgid
+       --${ONE_DAY} and t1.charge=t2.charge
+      )
+    );
+*/
+-- 把A表中标注同一个机构ID 和同一个就诊ID（同一天） 在B表中存在记录的数据 删除
+delete from  medical_gbdp.t_dc_result_${sqlSeq} t1  where exists(
+    select 1 from medical_gbdp.t_detail_presearch_2_${sqlSeq} t2
+    where t1.visitid=t2.visitid and t1.orgid=t2.orgid
+    --${ONE_DAY} and t1.charge=t2.charge
+);
+]]></sql>
+
+<!-- 一次就诊次数限制-->
+<sql id="one_visit_item_sum_limit"><![CDATA[
+-- 按就诊统计的次数
+drop TABLE if EXISTS medical_gbdp.t_one_visit_item_sum_${sqlSeq};
+create table medical_gbdp.t_one_visit_item_sum_${sqlSeq} as (
+ select orgid,orgname,visitid,his_itemname,itemname, chargeattri,
+  selfpay_prop,sum(sl) as one_visit_count
+ from dc_src_yb_charge_detail t2 where 1=1
+    and t2.orgid in (${orgid})
+    --${NOORGID} and t2.orgname rlike '${orgname}'
+    and t2.visitid in (${visitid_in})
+    and t2.paytype='funpay'  --${fundpayonly} --${NOTGY}
+    and t2.paytype='gy'  --${GY} 购药
+    and t2.chargedate>='${dateStart}'
+    and t2.chargedate<='${dateEnd}'
+    and t2.itemname rlike '${itemname}'
+    and t2.his_itemname rlike '${his_itemname}'
+ group by visitid,orgid,orgname, his_itemname,itemname,chargeattri,selfpay_prop
+) ;
+
+-- 为结果表增加索引
+CREATE INDEX idx_t_one_visit_item_sum_${sqlSeq} ON medical_gbdp.t_one_visit_item_sum_${sqlSeq} (visitid,orgid);
+
+delete from medical_gbdp.t_dc_result_${sqlSeq} t where not exists(
+    select 1 from medical_gbdp.t_one_visit_item_sum_${sqlSeq} t1
+    where t.visitid=t1.visitid and t.orgid=t1.orgid and t.itemname=t1.itemname
+    and t.his_itemname=t1.his_itemname and t.chargeattri=t1.chargeattri
+    and t.selfpay_prop=t1.selfpay_prop
+    and t1.one_visit_count>${vistidQty}
+    and t1.one_visit_count>(t.visitdays+${inhosQty} ) and t.visitdays>0
+    and t1.one_visit_count>(t.visitdays*24+${inhos24_qty} ) and t.visitdays>0
+);
+]]></sql>
+
+
+<!-- 添加附加手术信息 -->
+<sql id="add_operator_info"><![CDATA[
+-- 将该诊疗中的手术信息附带输出
+insert into medical_gbdp.t_dc_result_${sqlSeq}
+    (yyear,orgid,orgname,visitid, case_id,doctorname,deptname,visittype,insurancetypename,
+    name,sex,visitdate,leavedate,yearage,dis,visitdays ,dis_main,
+    charge,his_itemname,itemname,itemcode, chargeattri,selfpay_prop,sl,fy ,itemprice)
+    (
+    select t.* ,t2.charge,t2.his_itemname, t2.itemname,t2.itemcode,
+    t2.chargeattri,t2.selfpay_prop,t2.sl,t2.fy ,t2.itemprice
+    from
+    (
+     select yyear,orgid,orgname,visitid, case_id,doctorname,deptname,visittype,insurancetypename,
+     name,sex,visitdate,leavedate,yearage,dis_all as dis,
+     zy_days as visitdays ,dis_primary as dis_main
+     from dc_src_yb_master_diag_settl where 1=1
+     and orgid in (${orgid})
+     --${NOORGID} and orgname rlike '${orgname}'
+     and visitid in (${visitid_in})
+     and doctorname rlike '${doctorname}'
+     and visittype_code='MM'  --${MM}
+     and visittype_code='ZY'  --${ZY}
+     and visittype_code='GY'  --${GY}
+     and case_id rlike '${case_id}'
+     and name like '${clientname}%'
+     and id_no in (${idNo_in})
+     and leavedate>='${leaveDateStart}'
+     and leavedate<='${leaveDateEnd}'
+    ) t inner join
+    (select orgid,visitid,chargedate as charge,his_itemname,
+     itemname,itemcode,chargeattri,selfpay_prop,sl,fy ,itemprice
+     from dc_src_yb_charge_detail where 1=1
+     and orgid in (${orgid})
+     --${NOORGID} and orgname rlike '${orgname}'
+     and visitid in (${visitid_in})
+     and paytype='funpay'  --${fundpayonly} --${NOTGY}
+     and paytype='gy'  --${GY} 购药
+     and chargedate>='${dateStart}'
+     and chargedate<='${dateEnd}'
+     and chargedate>='${itemChargedateStart}'
+     and chargedate<='${itemChargedateEnd}'
+     and not itemname rlike '${itemname}'
+     and not his_itemname rlike '${his_itemname}'
+     and itemname  rlike '.*术$'
+     and itemprice>=600
+    ) t2
+    on t.orgid = t2.orgid and t.visitid = t2.visitid
+ );
+]]></sql>
+
+<!-- 只有医院名称+时间范围这两个条件，下载所有明细，下载就诊层级的项目明细 -->
+<sql id="query_result_by_visit_lvl"><![CDATA[
+-- 项目1的查询结果
+drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as (
+  select t.* ,t2.his_itemname, t2.itemname,t2.itemcode,
+  t2.chargeattri,t2.selfpay_prop,t2.sl,t2.fy ,t2.itemprice,
+  concat(NULL,NULL) as charge
+  from
+  (
+    select yyear,orgid,orgname,visitid, case_id,doctorname,deptname,visittype,insurancetypename,
+    name,sex,visitdate,leavedate,yearage,dis_all as dis, zy_days as visitdays ,
+    dis_primary as dis_main from dc_src_yb_master_diag_settl  where 1=1
+    and orgid in (${orgid})
+    --${NOORGID} and orgname rlike '${orgname}'
+    and visittype_code='MM'  --${MM}
+    and visittype_code='ZY'  --${ZY}
+    and visittype_code='GY'  --${GY}
+    and visitdate>='${dateStart}'
+    and visitdate<='${dateEnd}'
+    ) t
+    inner join
+    ( select orgid,visitid, his_itemname,
+    itemname,itemcode,chargeattri,selfpay_prop,sl,fy ,itemprice
+    from dc_src_yb_charge_detail_visit where 1=1
+    and orgid in (${orgid})
+    --${NOORGID} and orgname rlike '${orgname}'
+    and paytype='funpay'  --${fundpayonly} --${NOTGY}
+    and paytype='gy'  --${GY} 购药
+    ) t2
+    on t.orgid = t2.orgid and t.visitid = t2.visitid
+
+    limit ${limitCount}
+) ;
+]]></sql>
+
+<!-- 最终结果集 -->
+<sql id="finalQuery"><![CDATA[
+-- limited-max-count=1000000
+select * from medical_gbdp.t_dc_result_${sqlSeq} order by  visitid,charge
+]]></sql>
+</mapper>

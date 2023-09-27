@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.engine.mapper.QueryTaskBatchBreakRuleMapper">
+
+	<select id="findHisMedicalFormalCase" parameterType="String"
+            resultMap="com.ai.modules.his.mapper.HisMedicalFormalCaseMapper.mybatis-plus_HisMedicalFormalCase">
+        select *
+  from his_medical_formal_case
+ where case_id in
+       (SELECT DISTINCT B.RULE_ID
+          FROM TASK_BATCH_BREAK_RULE B
+         WHERE B.RULE_TYPE = '11'
+           AND B.BATCH_ID = #{batchId, jdbcType=VARCHAR}
+        union
+        SELECT DISTINCT CASE_ID
+          FROM HIS_MEDICAL_FORMAL_CASE_BUSI A, TASK_BATCH_BREAK_RULE B
+         WHERE A.BATCH_ID = B.BATCH_ID
+           AND A.BUSI_ID = B.RULE_ID
+           AND B.RULE_TYPE = '01'
+           AND A.BATCH_ID = #{batchId, jdbcType=VARCHAR})
+   and batch_id = #{batchId, jdbcType=VARCHAR}
+    </select>
+
+    <select id="queryMedicalFormalFlowCaseByBatchid" parameterType="String"
+            resultType="com.ai.modules.formal.entity.MedicalFormalCase">
+        SELECT *
+        from MEDICAL_FORMAL_CASE
+        WHERE CASE_ID in
+              (select z.case_id
+               from task_batch_break_rule x
+                        inner join medical_formal_busi y
+                                   on x.rule_id = y.busi_id
+                                       and x.rule_type = '01'
+                        inner join medical_formal_case_busi z
+                                   on y.busi_id = z.busi_id
+               where x.BATCH_ID = #{batchId, jdbcType=VARCHAR})
+    </select>
+
+    <select id="queryMedicalFormalFlowCaseByBusiid" parameterType="String"
+            resultType="com.ai.modules.formal.entity.MedicalFormalCase">
+        SELECT *
+        from MEDICAL_FORMAL_CASE
+        WHERE CASE_ID in
+              (select y.case_id
+               from medical_formal_busi x
+                        inner join medical_formal_case_busi y
+                                   on x.busi_id = y.busi_id
+               where x.busi_id = #{busiId, jdbcType=VARCHAR})
+    </select>
+
+    <sql id="Rule_Base_Column_List">
+       x.rule_id,
+       y.drug_code,
+       x.limit_scope,
+       x.age,
+       x.sex,
+       x.jzlx,
+       x.yblx,
+       x.yyjb,
+       x.office,
+       x.course_dose,
+       x.year_dose,
+       x.treat_project,
+       x.treatment,
+       x.repeat_drug,
+       x.indication,
+       x.message,
+       x.treat_drug,
+       x.drug_names,
+       x.rule_type,
+       x.charge_items,
+       x.frequency,
+       x.period,
+       x.charge_types,
+       x.inhospital_min,
+       x.inhospital_max,
+       x.before_inhospital,
+       x.clinic_projects,
+       x.disease_names,
+       x.before_projects,
+       x.charge_item_codes,
+       x.disease_codes,
+       x.compare,
+       x.out_hosp_plan,
+       x.dosage_limit,
+       x.dosage_unit,
+       x.take_time_limit,
+       x.time_unit,
+       x.max_keep_use_time,
+       x.max_keep_time_unit,
+       x.rule_source,
+       x.health_org_kind,
+       x.two_limit_drug2,
+       x.update_user,
+       x.update_username,
+       x.update_time,
+       x.create_user,
+       x.create_username,
+       x.create_time,
+       x.doc_advice,
+       x.fit_group_codes,
+       x.unfit_group_codes,
+       x.unfit_group_codes_day,
+       x.rule_basis,
+       x.un_indication,
+       x.un_expense,
+       x.org,
+       x.drug_usage,
+       x.un_charge,
+       x.pay_duration,
+       x.pay_duration_period,
+       x.pay_duration_unit,
+       x.count,
+       x.count_period,
+       x.age_low_compare,
+       x.age_high_compare,
+       x.age_low,
+       x.age_high,
+       x.age_unit,
+       x.diseasegroup_freq,
+       x.diseasegroup_codes,
+       x.two_frequency,
+       x.two_period,
+       x.two_compare,
+       x.drug_types,
+       x.start_time,
+       x.end_time,
+       x.action_id,
+       x.action_type,
+       x.action_name,
+       x.two_limit_drug,
+       x.test_result_item_type,
+       x.test_result_item_code,
+       x.test_result_item_name,
+       x.test_result_value_type,
+       x.test_result_value,
+       x.test_result_unit
+  	</sql>
+
+    <select id="queryMedicalDrugRuleByBatchid" parameterType="String"
+            resultType="com.ai.modules.medical.entity.MedicalDrugRule">
+        select
+        <include refid="Rule_Base_Column_List" />
+        from medical_drug_rule x
+                 inner join medical_drug_rule_id y on x.rule_id = y.rule_id
+                 inner join task_batch_break_rule z on y.rule_id = z.rule_id and z.rule_type = '02'
+        where z.batch_id = #{batchId, jdbcType=VARCHAR}
+    </select>
+
+    <select id="queryMedicalChargeRuleByBatchid" parameterType="String"
+            resultType="com.ai.modules.medical.entity.MedicalDrugRule">
+        select
+        <include refid="Rule_Base_Column_List" />
+        from medical_drug_rule x
+                 inner join medical_drug_rule_id y on x.rule_id = y.rule_id
+                 inner join task_batch_break_rule z on y.rule_id = z.rule_id and z.rule_type = '03'
+        where z.batch_id = #{batchId, jdbcType=VARCHAR}
+    </select>
+
+    <select id="queryMedicalClinicalRuleByBatchid" parameterType="String"
+            resultType="com.ai.modules.medical.entity.MedicalDrugRule">
+        select
+        <include refid="Rule_Base_Column_List" />
+        from medical_drug_rule x
+                 inner join medical_drug_rule_id y on x.rule_id = y.rule_id
+                 inner join task_batch_break_rule z on y.rule_id = z.rule_id and z.rule_type = '04'
+        where z.batch_id = #{batchId, jdbcType=VARCHAR}
+    </select>
+
+    <select id="queryMedicalDrugRuleByRuleid" parameterType="String"
+            resultType="com.ai.modules.medical.entity.MedicalDrugRule">
+        select
+        <include refid="Rule_Base_Column_List" />
+        from medical_drug_rule x
+                 inner join medical_drug_rule_id y on x.rule_id = y.rule_id
+        where x.rule_id = #{ruleId, jdbcType=VARCHAR}
+    </select>
+
+    <select id="queryMedicalDrugRule" parameterType="com.ai.modules.medical.entity.dto.QryMedicalDrugRuleDTO"
+            resultType="com.ai.modules.medical.entity.MedicalDrugRule">
+        select
+        <include refid="Rule_Base_Column_List" />
+  from medical_drug_rule x
+ inner join medical_drug_rule_id y on x.rule_id = y.rule_id
+ inner join task_batch_break_rule z on y.rule_id = z.rule_id and z.rule_type = #{ruleType, jdbcType=VARCHAR}
+        where z.batch_id = #{batchId, jdbcType=VARCHAR}
+    </select>
+
+    <select id="queryMedicalDrugRuleByPager" resultType="com.ai.modules.medical.entity.MedicalDrugRule">
+        select
+        <include refid="Rule_Base_Column_List" />
+  from medical_drug_rule x
+ inner join medical_drug_rule_id y on x.rule_id = y.rule_id
+ inner join task_batch_break_rule z on y.rule_id = z.rule_id
+        ${ew.customSqlSegment}
+        order by x.rule_id
+    </select>
+
+    <select id="queryMedicalDrugRuleByItem" parameterType="com.ai.modules.medical.entity.dto.QryMedicalDrugRuleDTO"
+            resultType="com.ai.modules.medical.entity.MedicalDrugRule">
+        select
+        <include refid="Rule_Base_Column_List" />
+  from medical_drug_rule x
+ inner join medical_drug_rule_id y on x.rule_id = y.rule_id
+ inner join task_batch_break_rule z on y.rule_id = z.rule_id and z.rule_type = #{ruleType, jdbcType=VARCHAR}
+        <![CDATA[
+        where y.drug_code = #{itemCode, jdbcType=VARCHAR}
+        and z.batch_id = #{batchId, jdbcType=VARCHAR}
+    	]]>
+    </select>
+
+    <!-- 查找临床路径必需药品组 -->
+    <select id="queryClinicalRequireDrugGroup"  parameterType="String" resultType="com.ai.modules.medical.entity.MedicalClinicalRangeGroup">
+		<!-- SELECT *
+  FROM MEDICAL_DRUG_GROUP X
+ WHERE X.GROUP_CODE IN
+       (SELECT GROUP_CODE
+          FROM MEDICAL_CLINICAL_RANGE_GROUP Y
+         WHERE REQUIRE_ATTR = 'require'
+           AND GROUP_TYPE = 'drug'
+           AND CLINICAL_ID = #{clinicalId, jdbcType=VARCHAR}) -->
+    	SELECT *
+  FROM MEDICAL_CLINICAL_RANGE_GROUP X
+ WHERE REQUIRE_ATTR = 'require'
+   AND GROUP_TYPE = 'drug'
+   AND CLINICAL_ID = #{clinicalId, jdbcType = VARCHAR}
+   AND EXISTS(SELECT 1 FROM MEDICAL_DRUG_GROUP Y WHERE X.GROUP_CODE=Y.GROUP_CODE)
+	</select>
+	<!-- 查找临床路径必需项目组 -->
+    <select id="queryClinicalRequireTreatGroup"  parameterType="String" resultType="com.ai.modules.medical.entity.MedicalClinicalRangeGroup">
+		<!-- SELECT *
+  FROM MEDICAL_PROJECT_GROUP X
+ WHERE X.GROUP_CODE IN
+       (SELECT GROUP_CODE
+          FROM MEDICAL_CLINICAL_RANGE_GROUP Y
+         WHERE REQUIRE_ATTR = 'require'
+           AND GROUP_TYPE = 'project'
+           AND CLINICAL_ID = #{clinicalId, jdbcType=VARCHAR}) -->
+    	SELECT *
+  FROM MEDICAL_CLINICAL_RANGE_GROUP X
+ WHERE REQUIRE_ATTR = 'require'
+   AND GROUP_TYPE = 'project'
+   AND CLINICAL_ID = #{clinicalId, jdbcType = VARCHAR}
+   AND EXISTS(SELECT 1 FROM MEDICAL_PROJECT_GROUP Y WHERE X.GROUP_CODE=Y.GROUP_CODE)
+	</select>
+
+	<!-- 查找合理用药规则 -->
+	<select id="queryMedicalDruguseByBatchid" parameterType="String"
+            resultType="com.ai.modules.medical.entity.MedicalDruguse">
+        select x.*
+        from medical_druguse x
+        inner join task_batch_break_rule z on x.rule_id = z.rule_id and z.rule_type = '08'
+        where z.batch_id = #{batchId, jdbcType=VARCHAR}
+    </select>
+
+    <!-- 查找失败部分的规则 -->
+    <select id="queryMedicalDrugRuleFail" parameterType="com.ai.modules.medical.entity.dto.QryMedicalDrugRuleDTO"
+            resultType="com.ai.modules.medical.entity.MedicalDrugRule">
+        select distinct y.drug_code
+  from medical_drug_rule x
+ inner join medical_drug_rule_id y on x.rule_id = y.rule_id
+ inner join task_batch_break_rule z on y.rule_id = z.rule_id and z.rule_type = #{ruleType, jdbcType=VARCHAR}
+        where y.drug_code in(select a.item_id from task_batch_break_rule_log a
+        	where a.status='abnormal'
+        <!--        	and a.item_type=decode(#{ruleType, jdbcType=VARCHAR}, '02', 'drug', '03', 'charge', '07', 'treat') -->
+        	and a.item_type=(CASE #{ruleType, jdbcType=VARCHAR} WHEN '02' THEN 'drug' WHEN '03' THEN 'charge' WHEN '07' THEN 'treat' END)
+              and a.batch_id = #{batchId, jdbcType=VARCHAR})
+        and z.batch_id = #{batchId, jdbcType=VARCHAR}
+    </select>
+
+    <!-- 查找合理用药失败部分的规则 -->
+	<select id="queryMedicalDruguseFail" parameterType="String"
+            resultType="com.ai.modules.medical.entity.MedicalDruguse">
+        select x.*
+        from medical_druguse x
+        inner join task_batch_break_rule z on x.rule_id = z.rule_id and z.rule_type = '08'
+        where x.rule_id in(select a.item_id from task_batch_break_rule_log a
+	        	where a.status='abnormal' and a.item_type='DRUGUSE' and a.batch_id = #{batchId, jdbcType=VARCHAR})
+        	and z.batch_id = #{batchId, jdbcType=VARCHAR}
+    </select>
+
+    <!-- 查找规则 -->
+	<select id="queryMedicalRuleConfigByBatchid" parameterType="com.ai.modules.medical.entity.dto.QryMedicalRuleConfigDTO"
+            resultMap="com.ai.modules.medical.mapper.MedicalRuleConfigMapper.mybatis-plus_MedicalRuleConfig">
+        select x.*
+        from medical_rule_config x
+        inner join task_batch_break_rule z on x.rule_id = z.rule_id and z.rule_type = #{ruleType, jdbcType=VARCHAR}
+        where x.status='normal' and z.batch_id = #{batchId, jdbcType=VARCHAR}
+    </select>
+    <!-- 查找失败部分的规则 -->
+	<select id="queryMedicalRuleConfigFail" parameterType="com.ai.modules.medical.entity.dto.QryMedicalRuleConfigDTO"
+            resultMap="com.ai.modules.medical.mapper.MedicalRuleConfigMapper.mybatis-plus_MedicalRuleConfig">
+        select x.*
+        from medical_rule_config x
+        inner join task_batch_break_rule z on x.rule_id = z.rule_id and z.rule_type = #{ruleType, jdbcType=VARCHAR}
+        where x.rule_id in(select a.item_id from task_batch_break_rule_log a
+	        	where a.status='abnormal'
+        <!--	        	and a.item_type=decode(#{ruleType, jdbcType=VARCHAR}, '09', 'NEWCHARGE', '10', 'NEWTREAT', '12', 'NEWDRUG') -->
+                  and a.item_type=(CASE #{ruleType, jdbcType=VARCHAR} WHEN '09' THEN 'NEWCHARGE' WHEN '10' THEN 'NEWTREAT' WHEN '12' THEN 'NEWDRUG' END)
+	        	and a.batch_id = #{batchId, jdbcType=VARCHAR})
+	        and x.status='normal'
+        	and z.batch_id = #{batchId, jdbcType=VARCHAR}
+    </select>
+
+    <!-- 查找重复用药失败部分的规则 -->
+	<select id="queryMedicalDrugrepeatFail" parameterType="String" resultType="com.ai.modules.config.entity.MedicalYbDrug">
+        select distinct x.parent_code
+        from medical_yb_drug x
+        where x.parent_code in(select a.item_id from task_batch_break_rule_log a
+	        	where a.status='abnormal'
+	        	and a.item_type='DRUGUSE'
+	        	and a.item_stype='DRUGREPEAT'
+	        	and a.batch_id = #{batchId, jdbcType=VARCHAR})
+    </select>
+
+    <!-- 查找规则id -->
+	<select id="queryTaskBatchBreakRuleIds" resultType="java.lang.String">
+        select rule_id from task_batch_break_rule
+        where batch_id = #{batchId, jdbcType=VARCHAR} and rule_type = #{ruleType, jdbcType=VARCHAR}
+    </select>
+    <!-- 查找失败部分的规则id -->
+	<select id="queryTaskBatchBreakRuleFailIds" resultType="java.lang.String">
+        select rule_id from task_batch_break_rule
+        where rule_id in(select a.item_id from task_batch_break_rule_log a
+	        	where a.status='abnormal'
+        <!--	        	and a.item_type=decode(#{ruleType, jdbcType=VARCHAR}, '09', 'NEWCHARGE', '10', 'NEWTREAT', '12', 'NEWDRUG') -->
+                  and a.item_type=(CASE #{ruleType, jdbcType=VARCHAR} WHEN '09' THEN 'NEWCHARGE' WHEN '10' THEN 'NEWTREAT' WHEN '12' THEN 'NEWDRUG' END)
+	        	and a.batch_id = #{batchId, jdbcType=VARCHAR})
+        	and batch_id = #{batchId, jdbcType=VARCHAR} and rule_type = #{ruleType, jdbcType=VARCHAR}
+    </select>
+</mapper>

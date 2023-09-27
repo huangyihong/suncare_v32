@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 12未入组的诊断及手术 -->
+<mapper>
+    <sql id="script"><![CDATA[
+drop table if exists medical_gbdp.t_visit_diag_surgery_${seq};
+create table medical_gbdp.t_visit_diag_surgery_${seq} as(
+select distinct
+	diag.visitid,
+	diag.orgid,
+	diag.diseasecode,
+	diag.diseasename,
+	b.itemcode surgery_code,
+	b.itemname surgery_name
+from src_his_zy_diag diag
+left join medical_gbdp.t_visit_shoushu_${seq} b on diag.visitid=b.visitid and diag.orgid=b.orgid
+) distributed by (visitid,orgid);
+create index t_visit_diag_surgery_${seq}_idx1 on medical_gbdp.t_visit_diag_surgery_${seq}(visitid, orgid);
+
+insert into medical_gbdp.medical_visit_drg(
+	id,
+	batch_id,
+	visitid,
+	orgid,
+	project,
+	drg_diag_code,
+	drg_diag_name,
+	drg_surgery_code,
+	drg_surgery_name)
+select
+	md5(concat_ws('_', '${batchId}', a.visitid, a.orgid, a.diseasecode, a.surgery_code)) id,
+	'${batchId}' batch_id,
+	a.visitid visitid,
+	a.orgid orgid,
+	'${project}',
+	a.diseasecode,
+	a.diseasename,
+	a.surgery_code,
+	a.surgery_name
+from
+	medical_gbdp.t_visit_diag_surgery_${seq} a
+where
+	not exists(
+	select
+		1
+	from
+		medical_gbdp.medical_visit_drg b
+	where
+		a.visitid = b.visitid
+		and a.orgid = b.orgid
+		and a.diseasecode = b.drg_diag_code
+		and coalesce(a.surgery_code,'') = coalesce(b.drg_surgery_code,'')
+		and b.batch_id = '${batchId}');
+    ]]></sql>
+</mapper>

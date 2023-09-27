@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.ybFj.mapper.YbFjProjectMapper">
+
+    <select id="queryYbFjProjectOrgVo" resultType="com.ai.modules.ybFj.vo.YbFjProjectOrgVo">
+        SELECT
+            a.project_org_id,
+            a.project_id,
+            a.org_id,
+            a.state,
+            a.create_time,
+            a.create_username,
+            a.create_user,
+            a.update_time,
+            a.update_username,
+            a.update_user,
+            b.org_name,
+            b.social_code,
+            b.responsible,
+            b.responsible_phone,
+            b.org_address
+        FROM
+            yb_fj_project_org a JOIN yb_fj_org b ON a.org_id = b.org_id
+            ${ew.customSqlSegment}
+        ORDER BY
+            a.create_time desc
+    </select>
+
+    <select id="queryYbFjProjectOrgIds" resultType="java.lang.String">
+        select group_concat(org_id) from yb_fj_project_org yfpo where project_id = #{projectId}
+    </select>
+
+    <select id="queryYbFjProjectByOrg" resultType="com.ai.modules.ybFj.vo.ProjectOrgClientVo">
+        SELECT
+            a.*,
+            b.project_org_id
+        FROM
+            yb_fj_project a JOIN yb_fj_project_org b ON a.project_id = b.project_id
+            where b.org_id=#{orgId,jdbcType=VARCHAR}
+            ${ew.customSqlSegment}
+        ORDER BY
+            a.create_time desc
+    </select>
+</mapper>

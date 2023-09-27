@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.medical.mapper.MedicalDruguseRuleGroupMapper">
+    <select id="listBlankVO" resultType="com.ai.modules.medical.vo.MedicalDruguseRuleGroupVO">
+        SELECT
+            *
+        FROM
+            MEDICAL_DRUGUSE_RULE_GROUP
+        <where>
+                ${ew.sqlSegment}
+        </where>
+    </select>
+
+    <select id="listVOJoinBean" resultType="com.ai.modules.medical.vo.MedicalDruguseRuleGroupVO">
+        SELECT
+            t.*, t1.RULE_CODE, t1.ITEM_NAMES, t1.ITEM_CODES, t1.ITEM_TYPES
+        FROM
+            MEDICAL_DRUGUSE_RULE_GROUP t
+        join (SELECT * FROM MEDICAL_DRUGUSE <where>${ew.sqlSegment}</where>) t1
+                on t.RULE_ID = T1.RULE_ID
+        order by t1.RULE_CODE, t.GROUP_NO
+    </select>
+</mapper>

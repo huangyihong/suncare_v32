@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+
+    <!-- 明细部分查询, 不包含项目名称的查询 -->
+    <sql id="detail_no_itemname"><![CDATA[
+--明细查询，项目名称查询条件为空，不加收费日期分组条件
+with detail_set as
+(
+ select orgid,orgname,t.visitid,from_timestamp(chargedate,'yyyy-MM') as charge,his_itemname,itemname,itemcode,sum(amount) as sl,sum(fee) fy
+ from src_yb_charge_detail t where 1=1
+ and t.orgname rlike '${orgname}'
+ and t.orgid in (${orgid})
+ and t.visitid rlike '${visitid}'
+ -- 不包含自费明细  ${fundpayonly}
+ and exists(select 1 from src_yb_settlement  t1 where t.visitid=t1.visitid and t.orgid=t1.orgid and t1.fundpay>0) --${fundpayonly}
+ and chargedate>='${dateStart}'
+ and chargedate<='${dateEnd}'
+ and
+ group by orgid,orgname,t.visitid,charge,his_itemname,itemname,itemcode
+)
+
+]]></sql>
+
+    <!-- 明细部分查询, 包含项目名称的查询 -->
+    <sql id="detail_with_one_itemname"><![CDATA[
+--明细查询，只有1个项目名称查询条件，分组条件中包含收费日期
+with detail_set as
+(
+ select orgid,orgname,t.visitid,from_timestamp(chargedate,'yyyy-MM') as charge,his_itemname,itemname,itemcode, sum(amount) as sl,sum(fee) fy
+ from src_yb_charge_detail t where 1=1
+ and t.orgname rlike '${orgname}'
+ and t.orgid in (${orgid})
+ and t.visitid rlike '${visitid}'
+ -- 不包含自费明细  -- ${fundpayonly}
+ and exists(select 1 from src_yb_settlement  t1 where t.visitid=t1.visitid and t.orgid=t1.orgid and t1.fundpay>0) -- ${fundpayonly}
+ and chargedate>='${dateStart}'
+ and chargedate<='${dateEnd}'
+ and itemname rlike '${itemname}'
+ and his_itemname rlike '${his_itemname}'
+ group by t.visitid,charge,orgid,orgname,his_itemname,itemname,itemcode
+)
+
+]]></sql>
+
+    <!-- 最终结果集 -->
+    <sql id="finalQuery"><![CDATA[
+-- 定义master主表查询数据集
+, master_query as (
+  select t.orgid,
+  t.orgname,
+  t.visitid,
+  concat(trim(clientname),from_timestamp(birthday,'yyyy-MM-dd')) as name
+  from src_yb_master_info t where 1=1
+  and t.orgname rlike '${orgname}'
+  and t.orgid in (${orgid})
+  and visittype not rlike '住院'  --${MM}
+  and visittype rlike '住院'  --${ZY}
+  and t.visitid rlike '${visitid}'
+  and case_id rlike '${case_id}'
+  and concat(trim(t.clientname),substr(t.birthday,1,10)) rlike '${clientname}'
+  and t.id_no rlike '${idNo}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+)
+
+--查询最终结果集
+ select itemname,t1.name,
+ --${month_count}
+ sum(sl) as sl,
+ sum(fy) as fy
+ from detail_set t
+ inner join master_query t1
+ on t.visitid=t1.visitid and t.orgid=t1.orgid
+ group by t1.name,itemname
+ order by fy desc
+]]></sql>
+</mapper>

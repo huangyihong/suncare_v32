@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 6.ADRG组（准备数据） -->
+<mapper>
+    <sql id="script"><![CDATA[
+drop table if exists medical_gbdp.t_medical_visit_adrg_diag_${seq};
+create table medical_gbdp.t_medical_visit_adrg_diag_${seq} as(
+select distinct
+	batch_id,
+	visitid,
+	orgid,
+	mdc,
+	mdc_name,
+	adrg,
+	adrg_name,
+	regexp_split_to_table(a.adrg_diag_code,',') diseasecode,
+	regexp_split_to_table(a.adrg_diag_name,',') diseasename
+from
+	medical_gbdp.medical_visit_adrg a
+where
+	batch_id = '${batchId}'
+) distributed by (visitid,orgid);
+create index t_medical_visit_adrg_diag_${seq}_idx1 on medical_gbdp.t_medical_visit_adrg_diag_${seq}(visitid, orgid);
+
+drop table if exists medical_gbdp.t_medical_visit_adrg_surgery_${seq};
+create table medical_gbdp.t_medical_visit_adrg_surgery_${seq} as(
+select distinct
+	batch_id,
+	visitid,
+	orgid,
+	mdc,
+	mdc_name,
+	adrg,
+	adrg_name,
+	regexp_split_to_table(a.adrg_surgery_code,',') surgery_code,
+	regexp_split_to_table(a.adrg_surgery_name,',') surgery_name
+from
+	medical_gbdp.medical_visit_adrg a
+where
+	batch_id = '${batchId}'
+) distributed by (visitid,orgid);
+create index t_medical_visit_adrg_surgery_${seq}_idx1 on medical_gbdp.t_medical_visit_adrg_surgery_${seq}(visitid, orgid);
+
+drop table if exists medical_gbdp.t_medical_visit_adrg_mapp_${seq};
+create table medical_gbdp.t_medical_visit_adrg_mapp_${seq} as(
+select
+    a.batch_id,
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	a.mdc_name,
+	a.adrg,
+	a.adrg_name,
+	a.diseasecode,
+	a.diseasename,
+    b.batch_id b_batch_id,
+	b.visitid b_visitid,
+	b.orgid b_orgid,
+	b.mdc b_mdc,
+	b.mdc_name b_mdc_name,
+	b.adrg b_adrg,
+	b.adrg_name b_adrg_name,
+	b.surgery_code,
+	b.surgery_name
+from medical_gbdp.t_medical_visit_adrg_diag_${seq} a
+full outer join medical_gbdp.t_medical_visit_adrg_surgery_${seq} b on a.visitid=b.visitid and a.orgid=b.orgid
+and a.mdc=b.mdc and a.adrg=b.adrg
+);
+create index t_medical_visit_adrg_mapp_${seq}_idx1 on medical_gbdp.t_medical_visit_adrg_mapp_${seq}(visitid, orgid);
+
+drop table if exists medical_gbdp.t_medical_visit_adrg_list_${seq};
+create table medical_gbdp.t_medical_visit_adrg_list_${seq} as(
+select
+	a.batch_id,
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	a.mdc_name,
+	a.adrg,
+	a.adrg_name,
+	a.diseasecode,
+	a.diseasename,
+	a.surgery_code,
+	a.surgery_name
+from medical_gbdp.t_medical_visit_adrg_mapp_${seq} a
+where a.diseasecode is not null and a.surgery_code is not null
+union all
+select
+    a.batch_id,
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	a.mdc_name,
+	a.adrg,
+	a.adrg_name,
+	a.diseasecode,
+	a.diseasename,
+	c.itemcode surgery_code,
+	c.itemname surgery_name
+from medical_gbdp.t_medical_visit_adrg_mapp_${seq} a
+left join medical_gbdp.t_visit_shoushu_${seq} c on a.visitid=c.visitid and a.orgid=c.orgid
+where a.diseasecode is not null and a.surgery_code is null
+union all
+select
+	a.b_batch_id batch_id,
+	a.b_visitid visitid,
+	a.b_orgid orgid,
+	a.b_mdc mdc,
+	a.b_mdc_name mdc_name,
+	a.b_adrg adrg,
+	a.b_adrg_name adrg_name,
+	diag.diseasecode,
+	diag.diseasename,
+	a.surgery_code,
+	a.surgery_name
+from medical_gbdp.t_medical_visit_adrg_mapp_${seq} a
+join src_his_zy_diag diag on a.visitid=diag.visitid and a.orgid=diag.orgid
+where a.diseasecode is null and a.surgery_code is not null
+) distributed by (visitid,orgid);
+create index t_medical_visit_adrg_list_${seq}_idx1 on medical_gbdp.t_medical_visit_adrg_list_${seq}(visitid, orgid);
+    ]]></sql>
+</mapper>

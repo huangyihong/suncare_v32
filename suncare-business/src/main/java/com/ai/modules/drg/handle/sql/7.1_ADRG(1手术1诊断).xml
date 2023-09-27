@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 7.ADRG组（1手术1诊断） -->
+<mapper>
+    <sql id="script"><![CDATA[
+        --ADRG组（1手术1诊断）
+drop table if exists medical_gbdp.t_adrg_rule_${seq};
+create table medical_gbdp.t_adrg_rule_${seq} as(
+--1诊断1手术规则
+select * from medical_gbdp.drg_catalog_detail a
+where
+	a.catalog_id = '${adrgDiagCatalogId}'
+	and condition_code = '04'
+);
+
+drop table if exists medical_gbdp.t_adrg_diag_1_${seq};
+create table medical_gbdp.t_adrg_diag_1_${seq} as(
+--满足1诊断
+select distinct
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	b.adrg_catalog_code adrg,
+	a.mdc_diag_code,
+	a.mdc_diag_name,
+	diag.diseasecode adrg_diag_code,
+	replace(diag.diseasename,',','，') adrg_diag_name
+from medical_gbdp.t_visit_mdc_has_shoushu_${seq} a
+join medical_gbdp.t_adrg_rule_${seq} b on a.mdc = b.mdc_catalog_code
+join src_his_zy_diag diag on a.visitid=diag.visitid and a.orgid=diag.orgid and b.diag_code1 = diag.diseasecode
+where b.diag_code1 is not null
+) distributed by (visitid,orgid);
+create index t_adrg_diag_1_${seq}_idx1 on medical_gbdp.t_adrg_diag_1_${seq} using btree (visitid, orgid);
+
+drop table if exists medical_gbdp.t_mdc_diag_${seq};
+create table medical_gbdp.t_mdc_diag_${seq} as(
+--mdc关联诊断组
+select * from medical_gbdp.drg_catalog_detail dcd where catalog_id='${mdcDiagCatalogId}'
+);
+
+drop table if exists medical_gbdp.t_adrg_diag_2_${seq};
+create table medical_gbdp.t_adrg_diag_2_${seq} as(
+--满足1诊断(关联诊断组)
+select distinct
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	b.adrg_catalog_code adrg,
+	a.mdc_diag_code,
+	a.mdc_diag_name,
+	diag.diseasecode adrg_diag_code,
+	replace(diag.diseasename,',','，') adrg_diag_name
+from
+	medical_gbdp.t_visit_mdc_has_shoushu_${seq} a
+join medical_gbdp.t_adrg_rule_${seq} b on a.mdc = b.mdc_catalog_code
+join medical_gbdp.t_mdc_diag_${seq} c on c.mdc_catalog_code=b.mdc_catalog_code
+join src_his_zy_diag diag on a.visitid=diag.visitid and a.orgid=diag.orgid and diag.diseasecode=c.code
+where b.diag_group_code1 is not null
+) distributed by (visitid,orgid);
+create index t_adrg_diag_2_${seq}_idx1 on medical_gbdp.t_adrg_diag_2_${seq} using btree (visitid, orgid);
+
+drop table if exists medical_gbdp.t_adrg_diag_${seq};
+create table medical_gbdp.t_adrg_diag_${seq} as(
+select * from medical_gbdp.t_adrg_diag_1_${seq}
+union
+select * from medical_gbdp.t_adrg_diag_2_${seq}
+);
+create index t_adrg_diag_${seq}_idx1 on medical_gbdp.t_adrg_diag_${seq} using btree (visitid, orgid);
+
+with t_adrg as(
+--满足1手术
+select distinct
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	a.adrg,
+	a.mdc_diag_code,
+	a.mdc_diag_name,
+	a.adrg_diag_code,
+	a.adrg_diag_name,
+	x.itemcode adrg_surgery_code,
+	x.itemname adrg_surgery_name
+from
+	medical_gbdp.t_adrg_diag_${seq} a
+join medical_gbdp.t_visit_shoushu_${seq} x on a.visitid = x.visitid and a.orgid = x.orgid
+join medical_gbdp.t_adrg_rule_${seq} y on a.mdc = y.mdc_catalog_code and a.adrg = y.adrg_catalog_code and x.itemcode = y.surgery_code1
+)
+insert into medical_gbdp.medical_visit_adrg(
+	id,
+	batch_id,
+	visitid,
+	orgid,
+	mdc,
+	mdc_name,
+	adrg,
+	adrg_name,
+	adrg_step,
+	adrg_step_desc,
+	project,
+	mdc_diag_code,
+	mdc_diag_name,
+	adrg_diag_code,
+	adrg_diag_name,
+	adrg_surgery_code,
+	adrg_surgery_name,
+	created_by,
+	created_by_name,
+	created_time)
+select
+	md5(concat_ws('_', '${batchId}', a.visitid, a.orgid, a.mdc, a.adrg, a.adrg_diag_code, a.adrg_surgery_code)) id,
+	'${batchId}' batch_id,
+	a.visitid,
+	a.orgid,
+	a.mdc,
+	c.name mdc_name,
+	a.adrg,
+	b.name adrg_name,
+	'7',
+	'7.ADRG1诊断1手术',
+	'${project}',
+	a.mdc_diag_code,
+	a.mdc_diag_name,
+	a.adrg_diag_code,
+	a.adrg_diag_name,
+	a.adrg_surgery_code,
+	a.adrg_surgery_name,
+	null created_by,
+	null created_by_name,
+	null created_time
+from t_adrg a
+join medical_gbdp.t_catalog_adrg_${seq} b on a.adrg = b.code and a.mdc = b.mdc_catalog_code
+join medical_gbdp.t_catalog_mdc_${seq} c on a.mdc=c.code
+where
+	b.mdc_catalog_code != 'MDCA';
+    ]]></sql>
+</mapper>

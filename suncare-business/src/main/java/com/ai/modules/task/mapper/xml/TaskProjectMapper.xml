@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.task.mapper.TaskProjectMapper">
+
+    <select id="selectPageVO" resultType="com.ai.modules.task.vo.TaskProjectVO">
+        SELECT
+            t.*,
+            ( SELECT count(*) FROM TASK_PROJECT_BATCH WHERE PROJECT_ID = t.PROJECT_ID ) BATCH_COUNT
+        FROM
+            TASK_PROJECT t ${ew.customSqlSegment}
+
+    </select>
+</mapper>

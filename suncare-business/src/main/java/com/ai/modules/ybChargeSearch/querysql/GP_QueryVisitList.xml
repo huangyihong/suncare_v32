@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- 住院门慢清单下载 -->
+<mapper>
+<!-- 住院门慢清单下载 医保(读取临时表） -->
+<sql id="querySql_YB"><![CDATA[
+--读取标签表
+drop TABLE if EXISTS medical_gbdp.t_tagname_set_${sqlSeq};
+create table medical_gbdp.t_tagname_set_${sqlSeq} as
+ (
+  SELECT
+  string_agg(distinct tag_name,',') as tag_name,
+  orgname_src,visitid_src
+  from medical.dwb_visitid_tag where 1=1
+  and etl_source='${etl_source}'
+  and project='${project}'
+  and tag_name='${tagName}'
+  and orgname_src ~ '${orgname}'
+  GROUP BY orgname_src,visitid_src
+);
+-- 加分区加索引
+CREATE INDEX idx_t_tagname_set_${sqlSeq} ON medical_gbdp.t_tagname_set_${sqlSeq} using btree (visitid_src,orgname_src);
+
+--查询最终结果
+drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as (
+  select t.*,t1.tag_name
+  from
+  (select t.*, zy_days as visitdays,dis_all as dis
+  from  dc_src_yb_master_diag_settl t
+  where 1=1
+  and visittype_code='MM'  --${MM}
+  and visittype_code='ZY'  --${ZY}
+  --${NOORGID}and orgname ~ '${orgname}'
+  and orgid in (${orgid})
+  and visitid in (${visitid_in})
+  and name like '${clientname}%'
+  and id_no in (${idNo_in})
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+  and visitdate>='${startVisitdate}'
+  and visitdate<='${endVisitdate}'
+  and visitdate>='${dateStart}'
+  and visitdate<='${dateEnd}'
+  and visitdate<='${inHospitalDate} 23:59:59' and leavedate>='${inHospitalDate}'
+  and dis_all ~ '${diseasename}'
+  and doctorid = '${doctorid}'
+  and doctorname = '${doctorname}'
+  ) t
+
+  left join  -- 标签名称条件为空，用left join  --${no_tagName}
+  inner join -- 标签名称条件不为空，inner join  --${tagName}
+
+  medical_gbdp.t_tagname_set_${sqlSeq} t1
+  on t.orgname=t1.orgname_src and t.visitid=t1.visitid_src
+
+  limit ${limitCount}
+) distributed by (visitid,orgid);
+
+
+/*  --当前查询不包含 "收费清单中不包含指定收费项目" 这个条件,所以注释  --${none_exclude_itemname}
+-- 加分区加索引
+CREATE INDEX idxt_dc_result_${sqlSeq} ON medical_gbdp.t_dc_result_${sqlSeq} using btree (visitid,orgid);
+
+--删除收费清单中包含指定关键字的数据
+delete from medical_gbdp.t_dc_result_${sqlSeq} t where exists(
+select 1 from dc_src_yb_charge_detail t2 where 1=1
+  --${NOORGID}and t2.orgname ~ '${orgname}'
+  and t2.orgid in (${orgid})
+  and t2.visitid in (${visitid_in})
+  and itemname ~ '${exclude_itemname}'
+  and t.orgid = t2.orgid
+  and t.visitid = t2.visitid
+)
+*/  --${none_exclude_itemname}
+;
+--limited-max-count=1000000
+select * from medical_gbdp.t_dc_result_${sqlSeq} t order by visitdate
+
+]]></sql>
+
+
+
+
+<!-- 住院门慢清单下载 医保(旧版本） -->
+<sql id="querySql_YB_OLD"><![CDATA[
+ drop TABLE if EXISTS medical_gbdp.t_settlement_set_${sqlSeq};
+create table medical_gbdp.t_settlement_set_${sqlSeq} as
+(
+  select visitid,orgid,orgname, sum(totalfee) as totalfee,sum(fundpay) as fundpay
+  from src_yb_settlement t where 1=1
+  --${NOORGID}and t.orgname ~ '${orgname}'
+  and t.orgid in (${orgid})
+  -- 不包含自费就诊记录 ${fundpayonly}
+  and fundpay>0  --${fundpayonly}
+  and to_char(settlementdate, 'YYYY')>='${dateStart}'
+  and settlementdate<='${dateEnd}'
+  group by visitid,orgid,orgname
+) distributed by (visitid,orgid);
+-- 加分区加索引
+CREATE INDEX idx_settlement_set_${sqlSeq} ON medical_gbdp.t_settlement_set_${sqlSeq} using btree (visitid,orgid);
+
+
+-- 定义医保diag表
+ drop TABLE if EXISTS medical_gbdp.t_yb_diag_set_${sqlSeq};
+create table medical_gbdp.t_yb_diag_set_${sqlSeq} as
+(
+  SELECT orgid,orgname, visitid ,
+  string_agg(distinct diseasename,'_') as dis
+  --${ODS} ,string_agg( diseasename_src,'_') as dis_src
+  --${SRC} ,'' as dis_src
+  from src_yb_diag t
+  where 1=1
+  --${NOORGID}and t.orgname ~ '${orgname}'
+  and t.orgid in (${orgid})
+  and t.diseasename ~ '${diseasename}'
+  GROUP BY orgid,orgname,visitid
+) distributed by (visitid,orgid);
+-- 加分区加索引
+CREATE INDEX idx_yb_diag_set_${sqlSeq} ON medical_gbdp.t_yb_diag_set_${sqlSeq} using btree (visitid,orgid);
+
+
+--定义收费+诊断联合体
+ drop TABLE if EXISTS medical_gbdp.yb_settlement_diag_set_${sqlSeq};
+create table medical_gbdp.yb_settlement_diag_set_${sqlSeq} as
+(
+  select t.*,t1.dis,t1.dis_src  from medical_gbdp.t_settlement_set_${sqlSeq} t
+  --${NotDiseasename} left join medical_gbdp.t_yb_diag_set_${sqlSeq} t1
+  --${hasDiseasename} inner join medical_gbdp.t_yb_diag_set_${sqlSeq} t1
+  on t.visitid=t1.visitid and t.orgid=t1.orgid
+) distributed by (visitid,orgid);
+-- 加分区加索引
+CREATE INDEX idx_yb_settlement_diag_set_${sqlSeq} ON medical_gbdp.yb_settlement_diag_set_${sqlSeq} using btree (visitid,orgid);
+
+
+ drop TABLE if EXISTS medical_gbdp.t_master_set_${sqlSeq};
+create table medical_gbdp.t_master_set_${sqlSeq} as
+ (
+  select t.orgid,t.orgname,t.visitid,t.visittype,t.doctorname,t.deptname,concat(trim(clientname),substr(cast(birthday as VARCHAR),1,10)) as name,
+  sex,substr(cast(t.visitdate as VARCHAR),1,10) as visitdate,substr(cast(t.leavedate as VARCHAR),1,10) as leavedate,
+  (t.leavedate::date - t.visitdate::date) as visitdays,
+  COALESCE(floor(EXTRACT(YEAR from age(visitdate, birthday))*12+EXTRACT(MONTH from age(visitdate,birthday))+1)/12,yearage) as yearage,
+  t1.dis as dis,t1.dis_src,totalfee,fundpay
+  from src_yb_master_info t inner join  medical_gbdp.yb_settlement_diag_set_${sqlSeq} t1
+  on t.visitid=t1.visitid and t.orgid=t1.orgid
+  where 1=1
+  and not t.visittype ~ '住院'  --${MM}
+  and t.visittype ~ '住院'  --${ZY}
+  --${NOORGID}and t.orgname ~ '${orgname}'
+  and t.orgid in (${orgid})
+  and t.visitid in (${visitid_in})
+  and concat(trim(t.clientname),substr(cast(t.birthday as VARCHAR),1,10)) ~ '${clientname}'
+  and t.id_no ~ '${idNo}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+  and t.visitdate>='${startVisitdate}'
+  and t.visitdate<='${endVisitdate}'
+  and t.doctorid = '${doctorid}'
+  and t.doctorname = '${doctorname}'
+) distributed by (visitid,orgid);
+-- 加分区加索引
+CREATE INDEX idx_master_set_${sqlSeq} ON medical_gbdp.t_master_set_${sqlSeq} using btree (visitid,orgid);
+
+
+--读取标签表
+ drop TABLE if EXISTS medical_gbdp.t_tagname_set_${sqlSeq};
+create table medical_gbdp.t_tagname_set_${sqlSeq} as
+ (
+  SELECT
+  string_agg(distinct tag_name,',') as tag_name,
+  orgname_src,visitid_src
+  from medical.dwb_visitid_tag where 1=1
+  and etl_source='${etl_source}'
+  and project='${project}'
+  GROUP BY orgname_src,visitid_src
+)
+;
+
+--查询最终结果
+ drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as (
+select t.* ,t1.tag_name from medical_gbdp.t_master_set_${sqlSeq} t left join medical_gbdp.t_tagname_set_${sqlSeq} t1
+  on t.orgname=t1.orgname_src and t.visitid=t1.visitid_src
+   where 1=1 and t1.tag_name='${tagName}'
+  limit ${limitCount}
+  );
+
+--limited-max-count=1000000
+select * from medical_gbdp.t_dc_result_${sqlSeq} t order by visitdate
+
+]]></sql>
+
+
+
+<!-- 住院门慢清单下载 医院HIS来源 -->
+<sql id="querySql_HIS"><![CDATA[
+-- 住院收费
+ drop TABLE if EXISTS medical_gbdp.t_settlement_set_zy_${sqlSeq};
+create table medical_gbdp.t_settlement_set_zy_${sqlSeq} as (
+  select visitid  as visitid,orgid,orgname, sum(totalfee) as totalfee,sum(fundpay) as fundpay
+  from src_his_zy_settlement t where 1=1
+  --${NOORGID}and t.orgname ~ '${orgname}'
+  and t.orgid in (${orgid})
+  -- 不包含自费就诊记录 ${fundpayonly}
+  and fundpay>0  --${fundpayonly}
+  and to_char(settlementdate, 'YYYY')>='${dateStart}'
+  and settlementdate<='${dateEnd}'
+  group by visitid,orgid,orgname
+) distributed by (visitid,orgid);
+-- 加分区加索引
+CREATE INDEX idx_settlement_set_zy_${sqlSeq} ON medical_gbdp.t_settlement_set_zy_${sqlSeq} using btree (visitid,orgid);
+
+-- 门诊收费
+ drop TABLE if EXISTS medical_gbdp.t_settlement_set_mz_${sqlSeq};
+create table medical_gbdp.t_settlement_set_mz_${sqlSeq} as (
+  select visitid as visitid,orgid,orgname, sum(totalfee) as totalfee,sum(fundpay) as fundpay
+  from src_his_mz_settlement t where 1=1
+  --${NOORGID}and t.orgname ~ '${orgname}'
+  and t.orgid in (${orgid})
+  -- 不包含自费就诊记录 ${fundpayonly}
+  and fundpay>0  --${fundpayonly}
+  and to_char(settlementdate, 'YYYY')>='${dateStart}'
+  and settlementdate<='${dateEnd}'
+  group by visitid,orgid,orgname
+) distributed by (visitid,orgid);
+-- 加分区加索引
+CREATE INDEX idx_settlement_set_mz_${sqlSeq} ON medical_gbdp.t_settlement_set_mz_${sqlSeq} using btree (visitid,orgid);
+
+
+-- 定义住院 diag表
+ drop TABLE if EXISTS medical_gbdp.t_diag_zy_set_${sqlSeq};
+create table medical_gbdp.t_diag_zy_set_${sqlSeq} as (
+  SELECT orgid,orgname,visitid as visitid ,
+  string_agg(distinct diseasename,'_') as dis
+  from src_his_zy_diag t
+  where 1=1
+  --${NOORGID}and t.orgname ~ '${orgname}'
+  and t.orgid in (${orgid})
+  and t.diseasename ~ '${diseasename}'
+  GROUP BY orgid,orgname,visitid
+) distributed by (visitid,orgid);
+-- 加分区加索引
+CREATE INDEX idx_diag_zy_set_${sqlSeq} ON medical_gbdp.t_diag_zy_set_${sqlSeq} using btree (visitid,orgid);
+
+-- 定义门诊 diag表
+ drop TABLE if EXISTS medical_gbdp.t_diag_mz_set_${sqlSeq};
+create table medical_gbdp.t_diag_mz_set_${sqlSeq} as (
+  SELECT orgid,orgname,visitid as visitid ,
+  string_agg(distinct diseasename,'_') as dis
+  from src_his_mz_diag t
+  where 1=1
+  --${NOORGID}and t.orgname ~ '${orgname}'
+  and t.orgid in (${orgid})
+  and t.diseasename ~ '${diseasename}'
+  GROUP BY orgid,orgname,visitid
+) distributed by (visitid,orgid);
+-- 加分区加索引
+CREATE INDEX idx_diag_mz_set_${sqlSeq} ON medical_gbdp.t_diag_mz_set_${sqlSeq} using btree (visitid,orgid);
+
+
+
+-- 住院结果集
+ drop TABLE if EXISTS medical_gbdp.t_zy_final_set_${sqlSeq};
+create table medical_gbdp.t_zy_final_set_${sqlSeq} as (
+  select t.orgid,t.orgname,t.visitid  as visitid,
+  (case when visittype is null or visittype='' then '住院' else visittype end ) as visittype,
+  t.doctorname,admit_deptname as deptname,concat(trim(clientname),substr(cast(birthday as VARCHAR),1,10)) as name,
+  sex,substr(cast(t.admitdate as VARCHAR),1,10) as visitdate,substr(cast(t.leavedate as VARCHAR),1,10) as leavedate,
+  (t.leavedate::date - t.admitdate::date) as visitdays,
+  COALESCE(floor(EXTRACT(YEAR from age(admitdate, birthday))*12+EXTRACT(MONTH from age(admitdate,birthday))+1)/12,yearage) as yearage,
+  t2.dis, t1.totalfee,fundpay
+  from src_his_zy_master_info t
+  inner join medical_gbdp.t_settlement_set_zy_${sqlSeq} t1
+  on t.visitid=t1.visitid and t.orgid=t1.orgid
+  inner join medical_gbdp.t_diag_zy_set_${sqlSeq} t2
+  on t.visitid=t2.visitid
+  and t.orgid=t2.orgid and t1.visitid=t2.visitid and t1.orgid=t2.orgid
+  where 1=1
+  --${NOORGID}and t.orgname ~ '${orgname}'
+  and t.orgid in (${orgid})
+  and t.visitid in (${visitid_in})
+  and concat(trim(t.clientname),substr(cast(t.birthday as VARCHAR),1,10)) ~ '${clientname}'
+  and t.id_no ~ '${idNo}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+  and t.admitdate>='${startVisitdate}'
+  and t.admitdate<='${endVisitdate}'
+  and t.doctorid = '${doctorid}'
+  and t.doctorname = '${doctorname}'
+) distributed by (visitid,orgid);
+-- 加分区加索引
+CREATE INDEX idx_zy_final_set_${sqlSeq} ON medical_gbdp.t_zy_final_set_${sqlSeq} using btree (visitid,orgid);
+
+-- 门诊结果集
+ drop TABLE if EXISTS medical_gbdp.t_mz_final_set_${sqlSeq};
+create table medical_gbdp.t_mz_final_set_${sqlSeq} as (
+  select t.orgid,t.orgname,t.visitid  as visitid,
+  (case when visittype is null or visittype='' then '门诊' else visittype end ) as visittype,
+  t.doctorname,deptname,concat(trim(clientname),substr(cast(birthday as VARCHAR),1,10)) as name,
+  sex,substr(cast(t.visitdate as VARCHAR),1,10) as visitdate,substr(cast(t.visitdate as VARCHAR),1,10) as leavedate, 0 as visitdays ,
+  COALESCE(floor(EXTRACT(YEAR from age(visitdate, birthday))*12+EXTRACT(MONTH from age(visitdate,birthday))+1)/12,yearage) as yearage,
+  t2.dis, t1.totalfee,fundpay
+  from src_his_mz_master_info t
+  inner join medical_gbdp.t_settlement_set_mz_${sqlSeq} t1
+  on t.visitid=t1.visitid and t.orgid=t1.orgid
+  inner join medical_gbdp.t_diag_mz_set_${sqlSeq} t2
+  on t.visitid=t2.visitid
+  and t.orgid=t2.orgid and t1.visitid=t2.visitid and t1.orgid=t2.orgid
+  where 1=1
+  --${NOORGID}and t.orgname ~ '${orgname}'
+  and t.orgid in (${orgid})
+  and t.visitid in (${visitid_in})
+  and concat(trim(t.clientname),substr(cast(t.birthday as VARCHAR),1,10)) ~ '${clientname}'
+  and t.id_no ~ '${idNo}'
+  and leavedate>='${leaveDateStart}'
+  and leavedate<='${leaveDateEnd}'
+  and t.visitdate>='${startVisitdate}'
+  and t.visitdate<='${endVisitdate}'
+  and t.doctorid = '${doctorid}'
+  and t.doctorname = '${doctorname}'
+) distributed by (visitid,orgid);
+-- 加分区加索引
+CREATE INDEX idx_mz_final_set_${sqlSeq} ON medical_gbdp.t_mz_final_set_${sqlSeq} using btree (visitid,orgid);
+
+
+
+--标签表
+ drop TABLE if EXISTS medical_gbdp.t_tagname_set_${sqlSeq};
+create table medical_gbdp.t_tagname_set_${sqlSeq} as (
+  SELECT
+  string_agg(distinct tag_name,',') as tag_name ,
+  orgname_src,visitid_src
+  from medical.dwb_visitid_tag where 1=1
+  and etl_source='${etl_source}'
+  and project='${project}'
+  GROUP BY orgname_src,visitid_src
+);
+-- 最终结果集
+drop TABLE if EXISTS medical_gbdp.t_dc_result_${sqlSeq};
+create table medical_gbdp.t_dc_result_${sqlSeq} as
+(
+  select t.*,t1.tag_name from
+  medical_gbdp.t_zy_final_set_${sqlSeq}  --${ZY}
+  medical_gbdp.t_mz_final_set_${sqlSeq}  --${MM}
+  ( select * from medical_gbdp.t_zy_final_set_${sqlSeq} union all select * from medical_gbdp.t_mz_final_set_${sqlSeq} )  --${ZY+MM}
+  t left join medical_gbdp.t_tagname_set_${sqlSeq} t1
+  on t.orgname=t1.orgname_src and t.visitid=t1.visitid_src order by visitdate
+  where 1=1 and t1.tag_name='${tagName}'
+  limit ${limitCount}
+  ) ;
+
+--limited-max-count=1000000
+select * from medical_gbdp.t_dc_result_${sqlSeq} t
+
+]]></sql>
+</mapper>

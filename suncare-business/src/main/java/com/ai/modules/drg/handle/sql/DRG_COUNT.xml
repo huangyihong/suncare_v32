@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+    <sql id="enrollmentDrg">
+        --已入组
+        select
+        count(distinct visitid) cnt
+        from
+        medical_gbdp.medical_visit_drg a
+        where
+        a.drg is not null
+        and a.drg != 'QY'
+        and a.batch_id = '${batchId}'
+    </sql>
+    <sql id="noEnrollmentDrg"><![CDATA[
+        --未入组
+        select
+        count(1) cnt
+        from
+        src_his_zy_master_info a
+        where 1=1
+        and a.orgid in ${orgid}
+	    and a.admitdate>='${startDate}'
+        and a.admitdate<='${endDate}'
+        and a.visitid not in(
+        select
+        visitid
+        from
+        medical_gbdp.medical_visit_drg b
+        where
+        b.drg is not null
+        and b.drg != 'QY'
+        and b.batch_id = '${batchId}');
+    ]]></sql>
+</mapper>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 0.预先准备数据 -->
+<mapper>
+    <sql id="script">
+        --创建临时手术表
+        drop table if exists medical_gbdp.t_shoushu_${seq};
+        create table medical_gbdp.t_shoushu_${seq} as(
+        select
+        surgery_code1 surgery_code,
+        surgery_name1 surgery_name
+        from medical_gbdp.drg_catalog_detail
+        where
+        catalog_type = 'ADRG_LIST_V'
+        and catalog_id = '${adrgDiagCatalogId}'
+        and surgery_code1 is not null
+        union
+        select
+        surgery_code2 surgery_code,
+        surgery_name2 surgery_name
+        from medical_gbdp.drg_catalog_detail
+        where
+        catalog_type = 'ADRG_LIST_V'
+        and catalog_id = '${adrgDiagCatalogId}'
+        and surgery_code2 is not null
+        union
+        select
+        surgery_code3 surgery_code,
+        surgery_name3 surgery_name
+        from medical_gbdp.drg_catalog_detail
+        where
+        catalog_type = 'ADRG_LIST_V'
+        and catalog_id = '${adrgDiagCatalogId}'
+        and surgery_code3 is not null
+        union
+        select
+        code surgery_code,
+        name surgery_name
+        from medical_gbdp.drg_catalog_detail
+        where
+        catalog_type = 'SURGERY_INFO_V'
+        and catalog_id = '${surgeryCatalogId}'
+        );
+        create index t_shoushu_${seq}_idx1 on medical_gbdp.t_shoushu_${seq}(surgery_name);
+        create index t_shoushu_${seq}_idx2 on medical_gbdp.t_shoushu_${seq}(surgery_code);
+        --病历手术明细表
+        drop table if exists medical_gbdp.t_visit_shoushu_${seq};
+        create table medical_gbdp.t_visit_shoushu_${seq} as(
+        select distinct visitid,orgid,operationcode itemcode, replace(operationname,',','，') itemname from src_his_zy_surgery a
+        where operationcode is not null
+        and a.orgid in ${orgid}
+        ) distributed by (visitid,orgid);
+        create index t_visit_shoushu_${seq}_idx1 on medical_gbdp.t_visit_shoushu_${seq} using btree (visitid, orgid);
+        --mdc目录
+        drop table if exists medical_gbdp.t_catalog_mdc_${seq};
+        create table medical_gbdp.t_catalog_mdc_${seq} as(
+        select * from medical_gbdp.drg_catalog_detail dcd where catalog_type='MDC_V' and catalog_id='${mdcCatalogId}'
+        );
+        --adrg目录
+        drop table if exists medical_gbdp.t_catalog_adrg_${seq};
+        create table medical_gbdp.t_catalog_adrg_${seq} as(
+        select * from medical_gbdp.drg_catalog_detail dcd where catalog_type='ADRG_V' and catalog_id='${adrgCatalogId}'
+        );
+        --drg目录
+        drop table if exists medical_gbdp.t_catalog_drg_${seq};
+        create table medical_gbdp.t_catalog_drg_${seq} as(
+        select * from medical_gbdp.drg_catalog_detail dcd where catalog_type='DRG_V' and catalog_id='${drgCatalogId}'
+        );
+    </sql>
+</mapper>

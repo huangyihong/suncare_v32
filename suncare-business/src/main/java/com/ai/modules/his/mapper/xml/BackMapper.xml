@@ -1,0 +1,859 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.his.mapper.BackMapper">
+    <!--    <insert id="backMedicalFormalCaseByVersion">
+            insert into his_medical_formal_case
+            (batch_id,
+             case_id,
+             case_code,
+             case_name,
+             case_codes,
+             case_names,
+             case_status,
+             case_remark,
+             case_version,
+            case_classify,
+             flow_json,
+             create_userid,
+             create_username,
+             create_time,
+             submit_userid,
+             submit_username,
+             submit_time,
+             action_name,
+             action_desc,
+             rule_basis,
+            rule_source,
+            rule_source_code,
+             start_time,
+             end_time,
+             action_id,
+             action_type,
+             action_type_name,
+             order_no,
+             result_data_status,
+             id_data_count,
+             obj_data_count,
+             data_money,
+             result_start_time,
+             result_end_time,
+             resule_message,
+             back_time)
+            select 'version:' || #{version},
+                   case_id,
+                   case_code,
+                   case_name,
+                   case_codes,
+                   case_names,
+                   case_status,
+                   case_remark,
+                   case_version,
+            case_classify,
+                   flow_json,
+                   create_userid,
+                   create_username,
+                   create_time,
+                   submit_userid,
+                   submit_username,
+                   submit_time,
+                   action_name,
+                   action_desc,
+                   rule_basis,
+                    rule_source,
+                    rule_source_code,
+                   start_time,
+                   end_time,
+                   action_id,
+                   action_type,
+                   action_type_name,
+                   order_no,
+                   result_data_status,
+                   id_data_count,
+                   obj_data_count,
+                   data_money,
+                   result_start_time,
+                   result_end_time,
+                   resule_message,
+                   sysdate
+        now()
+            from medical_formal_case
+            where case_id = #{caseId}
+        </insert>
+        <insert id="backMedicalFormalFlowByVersion">
+            insert into his_medical_formal_flow
+            (batch_id,
+             node_id,
+             node_code,
+             node_type,
+             node_name,
+             prev_node_code,
+             prev_node_condition,
+             case_id,
+             param_code,
+             order_no,
+             back_time)
+            select 'version:' || #{version},
+                   node_id,
+                   node_code,
+                   node_type,
+                   node_name,
+                   prev_node_code,
+                   prev_node_condition,
+                   case_id,
+                   param_code,
+                   order_no,
+                   sysdate
+        now()
+            from medical_formal_flow
+            where case_id = #{caseId}
+        </insert>
+
+        <insert id="backMedicalFormalFlowRuleByVersion">
+            insert into his_medical_formal_flow_rule
+            (batch_id,
+             rule_id,
+             node_id,
+             case_id,
+             group_no,
+             logic,
+             table_name,
+             col_name,
+             compare_type,
+             compare_value,
+             order_no,
+             node_code,
+             back_time)
+            select 'version:' || #{version},
+                   rule_id,
+                   node_id,
+                   case_id,
+                   group_no,
+                   logic,
+                   table_name,
+                   col_name,
+                   compare_type,
+                   compare_value,
+                   order_no,
+                   node_code,
+                   sysdate
+            from medical_formal_flow_rule
+            where case_id = #{caseId}
+        </insert>
+
+        <insert id="backMedicalFormalFlowRuleGradeByVersion">
+            insert into his_formal_flow_rule_grade
+            (batch_id,
+             grade_id,
+             case_id,
+             evaluate_table,
+             evaluate_field,
+             evaluate_fieldname,
+             standard_val,
+             weight,
+             method,
+             node_id,
+             node_code,
+             back_time)
+            select 'version:' || #{version},
+                   grade_id,
+                   case_id,
+                   evaluate_table,
+                   evaluate_field,
+                   evaluate_fieldname,
+                   standard_val,
+                   weight,
+                   method,
+                   node_id,
+                   node_code,
+                   sysdate
+            from medical_formal_flow_rule_grade
+            where case_id = #{caseId}
+        </insert>-->
+
+
+    <insert id="backMedicalFormalCaseByBusiIds">
+        insert into his_medical_formal_case
+        (batch_id,
+        case_id,
+        case_code,
+        case_name,
+        case_codes,
+        case_names,
+        case_status,
+        case_remark,
+        case_version,
+        case_classify,
+        flow_json,
+        create_userid,
+        create_username,
+        create_time,
+        update_remark,
+        submit_userid,
+        submit_username,
+        submit_time,
+        action_name,
+        action_desc,
+        rule_basis,
+        rule_source,
+        rule_source_code,
+        start_time,
+        end_time,
+        action_id,
+        action_type,
+        action_type_name,
+        order_no,
+        result_data_status,
+        id_data_count,
+        obj_data_count,
+        data_money,
+        result_start_time,
+        result_end_time,
+        resule_message,
+        rule_grade,
+        rule_grade_remark,
+        back_time)
+        select #{batchId,jdbcType=VARCHAR},
+        case_id,
+        case_code,
+        case_name,
+        case_codes,
+        case_names,
+        case_status,
+        case_remark,
+        case_version,
+        case_classify,
+        flow_json,
+        create_userid,
+        create_username,
+        create_time,
+        update_remark,
+        submit_userid,
+        submit_username,
+        submit_time,
+        action_name,
+        action_desc,
+        rule_basis,
+        rule_source,
+        rule_source_code,
+        start_time,
+        end_time,
+        action_id,
+        action_type,
+        action_type_name,
+        order_no,
+        result_data_status,
+        id_data_count,
+        obj_data_count,
+        data_money,
+        result_start_time,
+        result_end_time,
+        resule_message,
+        rule_grade,
+        rule_grade_remark,
+        <!--        sysdate -->
+        now()
+        from medical_formal_case
+        where case_id in
+        (SELECT DISTINCT case_id
+        FROM MEDICAL_FORMAL_CASE_BUSI
+        WHERE BUSI_ID in
+        <foreach collection="busiIds" item="busiId" index="index" open="(" close=")" separator=",">
+            #{busiId}
+        </foreach>
+        )
+    </insert>
+
+    <insert id="backMedicalFormalFlowByBusiIds">
+        insert into his_medical_formal_flow
+        (batch_id,
+        node_id,
+        node_code,
+        node_type,
+        node_name,
+        prev_node_code,
+        prev_node_condition,
+        case_id,
+        param_code,
+        order_no,
+        back_time)
+        select #{batchId,jdbcType=VARCHAR},
+        node_id,
+        node_code,
+        node_type,
+        node_name,
+        prev_node_code,
+        prev_node_condition,
+        case_id,
+        param_code,
+        order_no,
+        <!--        sysdate -->
+        now()
+        from medical_formal_flow
+        where case_id in
+        (SELECT DISTINCT case_id
+        FROM MEDICAL_FORMAL_CASE_BUSI
+        WHERE BUSI_ID in
+        <foreach collection="busiIds" item="busiId" index="index" open="(" close=")" separator=",">
+            #{busiId}
+        </foreach>
+        )
+    </insert>
+
+    <insert id="backMedicalFormalFlowRuleByBusiIds">
+        insert into his_medical_formal_flow_rule
+        (batch_id,
+        rule_id,
+        node_id,
+        case_id,
+        group_no,
+        logic,
+        table_name,
+        col_name,
+        compare_type,
+        compare_value,
+        order_no,
+        node_code,
+        back_time)
+        select #{batchId,jdbcType=VARCHAR},
+        rule_id,
+        node_id,
+        case_id,
+        group_no,
+        logic,
+        table_name,
+        col_name,
+        compare_type,
+        compare_value,
+        order_no,
+        node_code,
+        <!--        sysdate -->
+        now()
+        from medical_formal_flow_rule
+        where case_id in
+        (SELECT DISTINCT case_id
+        FROM MEDICAL_FORMAL_CASE_BUSI
+        WHERE BUSI_ID in
+        <foreach collection="busiIds" item="busiId" index="index" open="(" close=")" separator=",">
+            #{busiId}
+        </foreach>
+        )
+    </insert>
+
+    <insert id="backMedicalFormalFlowRuleGradeByBusiIds">
+        insert into his_formal_flow_rule_grade
+        (batch_id,
+        grade_id,
+        case_id,
+        evaluate_table,
+        evaluate_field,
+        evaluate_fieldname,
+        standard_val,
+        weight,
+        method,
+        node_id,
+        node_code,
+        back_time)
+        select #{batchId,jdbcType=VARCHAR},
+        grade_id,
+        case_id,
+        evaluate_table,
+        evaluate_field,
+        evaluate_fieldname,
+        standard_val,
+        weight,
+        method,
+        node_id,
+        node_code,
+        <!--        sysdate -->
+        now()
+        from medical_formal_flow_rule_grade
+        where case_id in
+        (SELECT DISTINCT case_id
+        FROM MEDICAL_FORMAL_CASE_BUSI
+        WHERE BUSI_ID in
+        <foreach collection="busiIds" item="busiId" index="index" open="(" close=")" separator=",">
+            #{busiId}
+        </foreach>
+        )
+    </insert>
+
+    <insert id="backMedicalFormalFlowBusiByBusiIds">
+        insert into his_medical_formal_busi
+        (batch_id,
+        busi_id,
+        busi_name,
+        cust_name,
+        busi_status,
+        data_source_id,
+        etl_start_time,
+        etl_end_time,
+        create_userid,
+        create_username,
+        create_time,
+        back_time)
+        select #{batchId,jdbcType=VARCHAR},
+        busi_id,
+        busi_name,
+        cust_name,
+        busi_status,
+        data_source_id,
+        etl_start_time,
+        etl_end_time,
+        create_userid,
+        create_username,
+        create_time,
+        <!--         sysdate -->
+        now()
+        from medical_formal_busi
+        where busi_id in
+        <foreach collection="busiIds" item="busiId" index="index" open="(" close=")" separator=",">
+            #{busiId}
+        </foreach>
+    </insert>
+
+    <insert id="backMedicalFormalFlowCaseBusiByBusiIds">
+        insert into his_medical_formal_case_busi
+        (batch_id, rela_id, busi_id, case_id, back_time)
+        select #{batchId,jdbcType=VARCHAR}, rela_id, busi_id, case_id,
+        <!--        sysdate -->
+        now()
+        from medical_formal_case_busi
+        where busi_id in
+        <foreach collection="busiIds" item="busiId" index="index" open="(" close=")" separator=",">
+            #{busiId}
+        </foreach>
+    </insert>
+
+    <!--    旧的-->
+    <insert id="backMedicalFormalCase" parameterType="String">
+        insert into his_medical_formal_case
+        (batch_id,
+         case_id,
+         case_code,
+         case_name,
+         case_codes,
+         case_names,
+         case_status,
+         case_remark,
+         flow_json,
+         create_userid,
+         create_username,
+         create_time,
+         update_remark,
+         case_version,
+         case_classify,
+         submit_userid,
+         submit_username,
+         submit_time,
+         action_name,
+         action_desc,
+         rule_basis,
+         rule_source,
+         rule_source_code,
+         start_time,
+         end_time,
+         action_id,
+         action_type,
+         action_type_name,
+         order_no,
+         result_data_status,
+         id_data_count,
+         obj_data_count,
+         data_money,
+         result_start_time,
+         result_end_time,
+         resule_message,
+         rule_grade,
+         rule_grade_remark,
+         back_time)
+        select #{batchId,jdbcType=VARCHAR},
+               case_id,
+               case_code,
+               case_name,
+               case_codes,
+               case_names,
+               case_status,
+               case_remark,
+               case_version,
+               case_classify,
+               flow_json,
+               create_userid,
+               create_username,
+               create_time,
+               update_remark,
+               submit_userid,
+               submit_username,
+               submit_time,
+               action_name,
+               action_desc,
+               rule_basis,
+               rule_source,
+               rule_source_code,
+               start_time,
+               end_time,
+               action_id,
+               action_type,
+               action_type_name,
+               order_no,
+               result_data_status,
+               id_data_count,
+               obj_data_count,
+               data_money,
+               result_start_time,
+               result_end_time,
+               resule_message,
+               rule_grade,
+               rule_grade_remark,
+        <!--        sysdate -->
+        now()
+        from medical_formal_case
+        where case_id in (SELECT DISTINCT t.case_id
+                          FROM MEDICAL_FORMAL_CASE_BUSI t,
+                               TASK_BATCH_BREAK_RULE t1
+                          WHERE t.BUSI_ID = t1.RULE_ID
+                            AND t1.RULE_TYPE = '01'
+                            AND t1.batch_id = #{batchId,jdbcType=VARCHAR})
+    </insert>
+
+    <insert id="backMedicalFormalFlow" parameterType="String">
+        insert into his_medical_formal_flow
+        (batch_id,
+         node_id,
+         node_code,
+         node_type,
+         node_name,
+         prev_node_code,
+         prev_node_condition,
+         case_id,
+         param_code,
+         order_no,
+         back_time)
+        select #{batchId,jdbcType=VARCHAR},
+               node_id,
+               node_code,
+               node_type,
+               node_name,
+               prev_node_code,
+               prev_node_condition,
+               case_id,
+               param_code,
+               order_no,
+        <!--       sysdate -->
+        now()
+        from medical_formal_flow
+        where case_id in
+              (SELECT DISTINCT t.case_id
+               FROM MEDICAL_FORMAL_CASE_BUSI t,
+                    TASK_BATCH_BREAK_RULE t1
+               WHERE t.BUSI_ID = t1.RULE_ID
+                 AND t1.RULE_TYPE = '01'
+                 AND t1.batch_id = #{batchId,jdbcType=VARCHAR})
+    </insert>
+
+    <insert id="backMedicalFormalFlowRule" parameterType="String">
+        insert into his_medical_formal_flow_rule
+        (batch_id,
+         rule_id,
+         node_id,
+         case_id,
+         group_no,
+         logic,
+         table_name,
+         col_name,
+         compare_type,
+         compare_value,
+         order_no,
+         node_code,
+         back_time)
+        select #{batchId,jdbcType=VARCHAR},
+               rule_id,
+               node_id,
+               case_id,
+               group_no,
+               logic,
+               table_name,
+               col_name,
+               compare_type,
+               compare_value,
+               order_no,
+               node_code,
+        <!--        sysdate -->
+        now()
+        from medical_formal_flow_rule
+        where case_id in
+              (SELECT DISTINCT t.case_id
+               FROM MEDICAL_FORMAL_CASE_BUSI t,
+                    TASK_BATCH_BREAK_RULE t1
+               WHERE t.BUSI_ID = t1.RULE_ID
+                 AND t1.RULE_TYPE = '01'
+                 AND t1.batch_id = #{batchId,jdbcType=VARCHAR})
+    </insert>
+
+    <insert id="backMedicalFormalFlowRuleGrade" parameterType="String">
+        insert into his_formal_flow_rule_grade
+        (batch_id,
+         grade_id,
+         case_id,
+         evaluate_table,
+         evaluate_field,
+         evaluate_fieldname,
+         standard_val,
+         weight,
+         method,
+         node_id,
+         node_code,
+         back_time)
+        select #{batchId,jdbcType=VARCHAR},
+               grade_id,
+               case_id,
+               evaluate_table,
+               evaluate_field,
+               evaluate_fieldname,
+               standard_val,
+               weight,
+               method,
+               node_id,
+               node_code,
+        <!--        sysdate -->
+        now()
+        from medical_formal_flow_rule_grade
+        where case_id in
+              (SELECT DISTINCT t.case_id
+               FROM MEDICAL_FORMAL_CASE_BUSI t,
+                    TASK_BATCH_BREAK_RULE t1
+               WHERE t.BUSI_ID = t1.RULE_ID
+                 AND t1.RULE_TYPE = '01'
+                 AND t1.batch_id = #{batchId,jdbcType=VARCHAR})
+    </insert>
+
+    <insert id="backMedicalFormalFlowBusi" parameterType="String">
+        insert into his_medical_formal_busi
+        (batch_id,
+         busi_id,
+         busi_name,
+         cust_name,
+         busi_status,
+         data_source_id,
+         etl_start_time,
+         etl_end_time,
+         create_userid,
+         create_username,
+         create_time,
+         back_time)
+        select #{batchId,jdbcType=VARCHAR},
+               busi_id,
+               busi_name,
+               cust_name,
+               busi_status,
+               data_source_id,
+               etl_start_time,
+               etl_end_time,
+               create_userid,
+               create_username,
+               create_time,
+        <!--        sysdate -->
+        now()
+        from medical_formal_busi
+        where busi_id in
+              (select rule_id from task_batch_break_rule where batch_id = #{batchId,jdbcType=VARCHAR})
+    </insert>
+
+    <insert id="backMedicalFormalFlowCaseBusi" parameterType="String">
+        insert into his_medical_formal_case_busi
+            (batch_id, rela_id, busi_id, case_id, back_time)
+        select #{batchId,jdbcType=VARCHAR}, rela_id, busi_id, case_id,
+        <!--        sysdate -->
+        now()
+        from medical_formal_case_busi
+        where busi_id in
+              (select rule_id from task_batch_break_rule where batch_id = #{batchId,jdbcType=VARCHAR})
+    </insert>
+
+    <insert id="backTaskBatchBreakRule" parameterType="String">
+        insert into his_task_batch_break_rule
+            (id, rule_id, rule_name, rule_type, batch_id, back_time)
+        select id, rule_id, rule_name, rule_type, batch_id,
+        <!--        sysdate -->
+        now()
+        from task_batch_break_rule
+        where batch_id = #{batchId,jdbcType=VARCHAR}
+    </insert>
+
+    <insert id="backMedicalFormalCaseByCaseid">
+        insert into his_medical_formal_case
+        (batch_id,
+         case_id,
+         case_code,
+         case_name,
+         case_codes,
+         case_names,
+         case_status,
+         case_remark,
+         case_version,
+         case_classify,
+         flow_json,
+         create_userid,
+         create_username,
+         create_time,
+         update_remark,
+         submit_userid,
+         submit_username,
+         submit_time,
+         action_name,
+         action_desc,
+         rule_basis,
+         rule_source,
+         rule_source_code,
+         start_time,
+         end_time,
+         action_id,
+         action_type,
+         action_type_name,
+         order_no,
+         result_data_status,
+         id_data_count,
+         obj_data_count,
+         data_money,
+         result_start_time,
+         result_end_time,
+         resule_message,
+         rule_grade,
+         rule_grade_remark,
+         back_time)
+        select #{batchId,jdbcType=VARCHAR},
+               case_id,
+               case_code,
+               case_name,
+               case_codes,
+               case_names,
+               case_status,
+               case_remark,
+               case_version,
+               case_classify,
+               flow_json,
+               create_userid,
+               create_username,
+               create_time,
+               update_remark,
+               submit_userid,
+               submit_username,
+               submit_time,
+               action_name,
+               action_desc,
+               rule_basis,
+               rule_source,
+               rule_source_code,
+               start_time,
+               end_time,
+               action_id,
+               action_type,
+               action_type_name,
+               order_no,
+               result_data_status,
+               id_data_count,
+               obj_data_count,
+               data_money,
+               result_start_time,
+               result_end_time,
+               resule_message,
+               rule_grade,
+               rule_grade_remark,
+        <!--        sysdate -->
+        now()
+        from medical_formal_case
+        where case_id = #{caseId,jdbcType=VARCHAR}
+    </insert>
+
+    <insert id="backMedicalFormalFlowByCaseid" parameterType="String">
+        insert into his_medical_formal_flow
+        (batch_id,
+         node_id,
+         node_code,
+         node_type,
+         node_name,
+         prev_node_code,
+         prev_node_condition,
+         case_id,
+         param_code,
+         order_no,
+         back_time)
+        select #{batchId,jdbcType=VARCHAR},
+               node_id,
+               node_code,
+               node_type,
+               node_name,
+               prev_node_code,
+               prev_node_condition,
+               case_id,
+               param_code,
+               order_no,
+        <!--        sysdate -->
+        now()
+        from medical_formal_flow
+        where case_id = #{caseId,jdbcType=VARCHAR}
+    </insert>
+
+    <insert id="backMedicalFormalFlowRuleByCaseid" parameterType="String">
+        insert into his_medical_formal_flow_rule
+        (batch_id,
+         rule_id,
+         node_id,
+         case_id,
+         group_no,
+         logic,
+         table_name,
+         col_name,
+         compare_type,
+         compare_value,
+         order_no,
+         node_code,
+         back_time)
+        select #{batchId,jdbcType=VARCHAR},
+               rule_id,
+               node_id,
+               case_id,
+               group_no,
+               logic,
+               table_name,
+               col_name,
+               compare_type,
+               compare_value,
+               order_no,
+               node_code,
+        <!--        sysdate -->
+        now()
+        from medical_formal_flow_rule
+        where case_id = #{caseId,jdbcType=VARCHAR}
+    </insert>
+
+    <insert id="backMedicalFormalFlowRuleGradeByCaseid" parameterType="String">
+        insert into his_formal_flow_rule_grade
+        (batch_id,
+         grade_id,
+         case_id,
+         evaluate_table,
+         evaluate_field,
+         evaluate_fieldname,
+         standard_val,
+         weight,
+         method,
+         node_id,
+         node_code,
+         back_time)
+        select #{batchId,jdbcType=VARCHAR},
+               grade_id,
+               case_id,
+               evaluate_table,
+               evaluate_field,
+               evaluate_fieldname,
+               standard_val,
+               weight,
+               method,
+               node_id,
+               node_code,
+        <!--        sysdate -->
+        now()
+        from medical_formal_flow_rule_grade
+        where case_id = #{caseId,jdbcType=VARCHAR}
+    </insert>
+</mapper>

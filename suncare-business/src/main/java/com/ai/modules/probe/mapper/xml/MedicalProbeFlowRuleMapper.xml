@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.probe.mapper.MedicalProbeFlowRuleMapper">
+    <select id="listFlowRule" resultType="com.ai.modules.formal.entity.MedicalFormalFlowRule">
+        SELECT t.* from MEDICAL_PROBE_FLOW_RULE t
+        <if test="ew.emptyOfWhere == false">
+            WHERE ${ew.sqlSegment}
+        </if>
+    </select>
+</mapper>

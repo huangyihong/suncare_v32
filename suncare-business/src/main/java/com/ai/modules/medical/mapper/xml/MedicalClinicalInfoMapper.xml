@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.medical.mapper.MedicalClinicalInfoMapper">
+    <select id="getByCode" resultType="com.ai.modules.medical.entity.MedicalClinicalInfo">
+        SELECT t.*
+        from MEDICAL_CLINICAL_INFO t
+                 join MEDICAL_CLINICAL t1 on t.CLINICAL_ID = t1.CLINICAL_ID and t1.CLINICAL_CODE = #{code}
+    </select>
+</mapper>

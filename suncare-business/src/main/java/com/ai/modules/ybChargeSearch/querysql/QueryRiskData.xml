@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>datamining_chargeitem_risk_data
+
+<!-- 查询datamining_chargeitem_risk_data表 -->
+<sql id="datamining_chargeitem_risk_data"><![CDATA[
+select * from medical.datamining_chargeitem_risk_data t
+  where t.project='${project}'
+  and tag_index = '${tag_id}'
+  -- and t.etl_source='${etl_source}'
+  and t.orgname rlike '${orgname}'
+  order by t.tag_name ,visitid_src,fee_occur_time
+]]></sql>
+
+<!-- 根据项目地查询datamining_chargeitem_risk_data表获取标签ID和名称 -->
+<sql id="datamining_chargeitem_tagInfo"><![CDATA[
+SELECT  tag_index ,concat(tag_name ,'(' ,cast(count(1) as string) ,')' )as tagname
+  from medical.datamining_chargeitem_risk_data t
+  where t.project='${project}'
+  group by tag_index ,tag_name
+  ORDER BY tag_index
+]]></sql>
+
+<!-- 根据项目地查询datamining_chargeitem_risk_data表获取标签ID和名称 -->
+<sql id="bak__datamining_chargeitem_tagInfo"><![CDATA[
+SELECT DISTINCT tag_index ,tag_name as tagname
+from medical.datamining_chargeitem_risk_data t
+where t.project='${project}'
+ORDER BY tag_index
+]]></sql>
+
+<sql id="datamining_diag_tagInfo"><![CDATA[
+SELECT DISTINCT tag_index ,tag_name as tagname
+  from medical.datamining_diag_risk_data t
+  where t.project='${project}'
+  ORDER BY tag_index
+]]></sql>
+
+<!-- 查询datamining_diag_risk_data -->
+<sql id="datamining_diag_risk_data"><![CDATA[
+select * from medical.datamining_diag_risk_data t
+  where t.project='${project}'
+  and tag_index = '${tag_id}'
+  -- and t.etl_source='${etl_source}'
+  and t.orgname rlike '${orgname}'
+  order by t.tag_name ,t.yyear , t.total_amount desc
+]]></sql>
+
+
+    <!-- 查询datamining_org_risk_data -->
+<sql id="datamining_org_risk_data"><![CDATA[
+select * from medical.datamining_org_risk_data t
+  where t.project='${project}'
+  and tag_index = '${tag_id}'
+  -- and t.etl_source='${etl_source}'
+  and t.orgname rlike '${orgname}'
+  order by t.yyear, t.orgname,t.tag_name  desc
+]]></sql>
+
+    <!-- 查询datamining_visit_together -->
+ <sql id="datamining_visit_together"><![CDATA[
+-- 查询结果表
+with result_visitid_tag as  (
+  select tag_name,orgname_src , orgname ,visitid_src , visitid from medical.dwb_visitid_tag t
+  where t.project='${project}'
+  and t.etl_source='${etl_source}'
+  and t.orgname rlike '${orgname}'
+  and t.tag_id not in ('inhospital_risk01','inhospital_risk02')
+  and t.tag_type_name='数据挖掘'
+)
+
+select t.*,t1.tag_name,t2.insurancetype,t2.deptname_src,t2.doctorname
+from medical.datamining_visit_together t
+left join result_visitid_tag t1 on t.visitid=t1.visitid
+left join medical.dwb_master_info t2 on t.visitid=t2.visitid
+  where t.project='${project}'
+  -- and t.etl_source='${etl_source}'
+  and t.orgname_src rlike '${orgname}'
+  order by t.groupid asc, t.group_patient_qty desc,t.group_cnt  desc
+]]></sql>
+
+<!-- 查询dwb_visitid_tag表+master_info表 -->
+<sql id="dwb_visitid_tag"><![CDATA[
+-- 查询结果表
+with result_visitid_tag as  (
+  select tag_name,orgname_src , orgname ,visitid_src , visitid from medical.dwb_visitid_tag t
+  where t.project='${project}'
+  and tag_id rlike '${tag_id}'
+  and t.etl_source='${etl_source}'
+  and t.orgname rlike '${orgname}'
+)
+--定义master 表
+SELECT tag_name,t1.visitid_src as visitid, t1.orgname_src as  orgname,
+  t.visittype,concat(trim(clientname),substr(birthday,1,10)) as clientname,
+  nvl(floor((months_between(substr(visitdate,1,10),substr(birthday,1,10)))/12),yearage) as yearage,
+  t.doctorname,t.deptname ,insurancetype, substr(t.visitdate,1,10) as visitdate,
+  substr(t.leavedate,1,10) as leavedate,
+  datediff(t.leavedate,t.visitdate) as visitdays,
+  diseasename  as dis , -- 疾病名称
+  totalfee , -- 医疗费用总金额',
+  fundpay , -- 本次基金支付金额',
+  treat_amt,  -- 治疗费总额
+  check_total_amt, -- 检查费总额
+  labtest_amt, -- 化验费总额
+  conamte_amt, -- 耗材费总额
+  wm_amt,  -- 西药费总额
+  chimed_amt, -- 中成药费总额
+  herbal_amt, -- 中草药费总额
+  nursing_amt, -- 护理费总额
+  operation_amt, -- 手术费总额
+  bed_amt, -- 床位费总额
+  diag_amt, -- 门急诊诊查费总额
+  -- elsefee_amt , -- 其他费总额，不用该字段，改用自己计算
+  (totalfee-treat_amt-check_total_amt-labtest_amt-conamte_amt-
+    wm_amt-chimed_amt-herbal_amt-nursing_amt-operation_amt-bed_amt-diag_amt) as elsefee_amt --其它费，通过计算得到
+from medical.dwb_master_info t inner join result_visitid_tag t1
+  on t.visitid=t1.visitid and t.orgname=t1.orgname
+  where t.project='${project}'
+  and t.etl_source='${etl_source}'
+  and t.orgname rlike '${orgname}'
+  order by tag_name,t1.visitid_src ,visitdate
+]]></sql>
+
+
+
+    <!-- 根据项目地查询datamining_chargeitem_risk_data/datamining_diag_risk_data/dwb_visitid_tag表获取标签ID和名称 -->
+    <sql id="tagInfo_all"><![CDATA[
+    with chargeitem_tag as (
+      SELECT  tag_index ,concat(tag_name ,'(' ,cast(count(1) as string) ,')' )as tagname,
+      tag_name as name,count(1) as count,
+      'riskStatistics' as tag_type
+      from medical.datamining_chargeitem_risk_data t
+      where t.project='${project}'
+      and t.etl_source='${etl_source}'
+      and t.orgname rlike '${orgname}'
+      group by tag_index ,tag_name
+    )
+    ,diag_tag as (
+      SELECT tag_index ,concat(tag_name ,'(' ,cast(count(1) as string) ,')' )as tagname,
+      tag_name as name,count(1) as count,
+      'diagRiskStatistics' as tag_type
+      from medical.datamining_diag_risk_data t
+      where t.project='${project}'
+      and t.etl_source='${etl_source}'
+      and t.orgname rlike '${orgname}'
+      group by tag_index ,tag_name
+    )
+    ,low_tag as (
+      SELECT 'inhospital_risk01|inhospital_risk02' as tag_index ,concat('低标准入院' ,'(' ,cast(count(1) as string) ,')' )as tagname,
+      '低标准入院' as name,count(1) as count,
+      'lowStatistics' as tag_type
+      from medical.dwb_visitid_tag t
+      where t.project='${project}'
+      and t.etl_source='${etl_source}'
+      and t.orgname rlike '${orgname}'
+      and tag_id rlike 'inhospital_risk01|inhospital_risk02'
+    )
+    ,org_risk_tag as (
+      SELECT tag_index ,concat(tag_name ,'(' ,cast(count(1) as string) ,')' )as tagname,
+      tag_name as name,count(1) as count,
+      'orgRiskStatistics' as tag_type
+      from medical.datamining_org_risk_data t
+      where t.project='${project}'
+      and t.etl_source='${etl_source}'
+      and t.orgname rlike '${orgname}'
+      group by tag_index ,tag_name
+    )
+   ,visit_together_tag as (
+      SELECT tag_id as tag_index ,concat(tag_name ,'(' ,cast(count(1) as string) ,')' )as tagname,
+      tag_name as name,count(1) as count,
+      'visitTogetherStatistics' as  tag_type
+      from medical.dwb_visitid_tag t
+      where t.project='${project}'
+      and t.etl_source='${etl_source}'
+      and t.orgname rlike '${orgname}'
+      and t.tag_id not in ('inhospital_risk01','inhospital_risk02')
+      and t.tag_type_name='数据挖掘'
+      group by tag_id ,tag_name
+    )
+
+    select * from (
+        select * from chargeitem_tag union all
+        select * from  diag_tag union all
+        select * from low_tag union all
+        select * from org_risk_tag union all
+        select * from visit_together_tag
+    ) t order by count desc
+
+    ]]></sql>
+
+    <!-- 根据项目地查询datamining_patient_risk_data表获取标签ID和名称 -->
+    <sql id="tagInfo_patient"><![CDATA[
+   SELECT tag_index ,concat(tag_name ,'(' ,cast(count(1) as string) ,')' )as tagname,
+      tag_name as name,count(1) as count,
+      'patientRiskStatistics' as tag_type
+      from medical.datamining_patient_risk_data t
+      where t.project='${project}'
+      and t.etl_source='${etl_source}'
+      and t.orgname rlike '${orgname}'
+      group by tag_index ,tag_name
+    ]]></sql>
+
+    <!-- 查询datamining_patient_risk_data 汇总 -->
+    <sql id="patient_risk_group_list"><![CDATA[
+        SELECT
+        yyear,
+        clientid,
+        MIN ( clientname ) AS clientname,
+        MIN ( yearage ) AS yearage,
+        MIN ( sex ) AS sex,
+        MIN ( org_list ) AS org_list,
+        MIN ( diag_name_src ) AS diag_name_src,
+        MIN ( diag_name_list ) AS diag_name_list,
+        MIN ( insurancetypename ) AS insurancetypename,
+        MIN ( totalfee_sum ) AS totalfee_sum,
+        MIN ( fundpay_sum ) AS fundpay_sum,
+        COUNT ( DISTINCT tag_index ) tag_count,
+        group_concat ( DISTINCT tag_name, ',' ) AS tag_name,
+        MIN ( etl_source ) AS etl_source
+    from medical.datamining_patient_risk_data t
+    where t.project='${project}'
+        and tag_index = '${tag_id}'
+      -- and t.etl_source='${etl_source}'
+      and t.org_list rlike '${orgname}'
+      and yyear>='${start_year}'
+      and yyear<='${end_year}'
+      and clientid rlike '${clientid}'
+      and clientname rlike '${clientname}'
+    group by yyear,clientid
+    order  by yyear desc,tag_count desc
+    ]]></sql>
+
+    <!-- 查询datamining_patient_risk_data 汇总 -->
+    <sql id="datamining_patient_risk_data"><![CDATA[
+        SELECT * from medical.datamining_patient_risk_data t
+    where t.project='${project}'
+        and tag_index = '${tag_id}'
+        and tag_name = '${tag_name}'
+      -- and t.etl_source='${etl_source}'
+      and t.org_list rlike '${orgname}'
+      and yyear>='${start_year}'
+      and yyear<='${end_year}'
+      and clientid rlike '${clientid}'
+      and clientname rlike '${clientname}'
+    ]]></sql>
+
+    <!-- 根据项目地查询datamining_doctor_risk_data表获取标签ID和名称 -->
+    <sql id="tagInfo_doctor"><![CDATA[
+   SELECT  tag_index ,concat(tag_name ,'(' ,cast(count(1) as string) ,')' )as tagname,
+      tag_name as name,count(1) as count,
+      'doctorRiskStatistics' as tag_type
+      from medical.datamining_doctor_risk_data t
+      where t.project='${project}'
+      and t.etl_source='${etl_source}'
+      and t.orgname rlike '${orgname}'
+      group by tag_index ,tag_name
+    ]]></sql>
+
+    <!-- 查询datamining_doctor_risk_data 汇总 -->
+    <sql id="doctor_risk_group_list"><![CDATA[
+        SELECT
+        yyear,
+		orgname,
+		deptname_src,
+        doctorname,
+        MIN ( doctorid ) AS doctorid,
+        MIN ( mz_count ) AS mz_count,
+        MIN ( zy_count ) AS zy_count,
+		MIN ( totalfee_sum ) AS totalfee_sum,
+        MIN ( fundpay_sum ) AS fundpay_sum,
+        MIN ( mz_days_cnt ) AS mz_days_cnt,
+        MIN ( mz_fundpay_days_cnt ) AS mz_fundpay_days_cnt,
+        COUNT ( DISTINCT tag_index ) tag_count,
+        group_concat ( DISTINCT tag_name, ',' ) AS tag_name,
+        MIN ( etl_source ) AS etl_source
+    from medical.datamining_doctor_risk_data t
+    where t.project='${project}'
+        and tag_index = '${tag_id}'
+      -- and t.etl_source='${etl_source}'
+      and t.orgname rlike '${orgname}'
+      and concat(yyear ,'-' ,mmonth ,'-' ,dday)>='${dateStart}'
+      and concat(yyear ,'-' ,mmonth ,'-' ,dday)<='${dateEnd}'
+      and deptname_src rlike '${deptname_src}'
+      and doctorname rlike '${doctorname}'
+    group by yyear,orgname,deptname_src,doctorname
+    order  by yyear desc,tag_count desc
+    ]]></sql>
+
+    <!-- 查询datamining_doctor_risk_data 汇总 -->
+    <sql id="datamining_doctor_risk_data"><![CDATA[
+        SELECT * from medical.datamining_doctor_risk_data t
+    where t.project='${project}'
+        and tag_index = '${tag_id}'
+        and tag_name = '${tag_name}'
+     -- and t.etl_source='${etl_source}'
+      and t.orgname rlike '${orgname}'
+      and concat(yyear ,'-' ,mmonth ,'-' ,dday)>='${dateStart}'
+      and concat(yyear ,'-' ,mmonth ,'-' ,dday)<='${dateEnd}'
+      and deptname_src rlike '${deptname_src}'
+      and doctorname rlike '${doctorname}'
+    ]]></sql>
+
+</mapper>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.ybFj.mapper.YbFjChatOrgMapper">
+
+    <select id="queryYbFjChatOrgVo" resultType="com.ai.modules.ybFj.vo.YbFjChatOrgVo">
+        SELECT
+            x.*,
+            y.org_name,
+            y.legalperson,
+            (select count(1) from yb_fj_chat_org_log t where x.org_id=t.org_id and t.read_state='n') no_read_cnt
+        FROM
+            yb_fj_chat_org x
+                JOIN yb_fj_org y ON x.org_id = y.org_id
+            ${ew.customSqlSegment}
+        ORDER BY
+            ifnull(x.chat_time, x.top_time) desc
+    </select>
+</mapper>

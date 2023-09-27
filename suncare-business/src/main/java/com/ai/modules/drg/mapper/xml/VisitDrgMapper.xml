@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.drg.mapper.VisitDrgMapper">
+    <select id="getSrcYbClientById" resultType="com.ai.modules.drg.vo.SrcYbClientVo">
+        select * from  ${schema}.src_yb_client t where t.clientid = #{clientid}
+    </select>
+
+    <select id="getSrcYbSettlementById" resultType="com.ai.modules.drg.vo.SrcYbSettlementVo">
+        select * from  ${schema}.src_yb_settlement t where t.clientid = #{clientid} and t.visitid = #{visitid}
+    </select>
+
+
+</mapper>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.modules.task.mapper.TaskBatchBreakRuleDelMapper">
+    <select id="selectByBusiIds" resultType="com.ai.modules.task.entity.TaskBatchBreakRuleDel">
+        SELECT
+        t2.BUSI_ID,
+        t2.BUSI_NAME,
+        t1.CASE_ID,
+        t1.CASE_NAME
+        FROM
+        MEDICAL_FORMAL_CASE_BUSI t,
+        MEDICAL_FORMAL_CASE t1,
+        MEDICAL_FORMAL_BUSI t2
+        WHERE
+        t.CASE_ID = t1.CASE_ID
+        AND t.BUSI_ID = t2.BUSI_ID
+        AND t2.BUSI_ID in
+        <foreach collection="array" item="id" index="index" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+        ORDER BY
+        t.BUSI_ID
+    </select>
+
+    <select id="pageVo" resultType="com.ai.modules.task.vo.TaskBatchBreakRuleDelVO">
+        SELECT t.*,
+               t1.CASE_CLASSIFY
+        FROM (SELECT * FROM TASK_BATCH_BREAK_RULE_DEL ${ew.customSqlSegment}) t
+                 join HIS_MEDICAL_FORMAL_CASE t1
+                      on t1.BATCH_ID = #{batchId} and t.CASE_ID = t1.CASE_ID
+
+    </select>
+
+
+</mapper>
